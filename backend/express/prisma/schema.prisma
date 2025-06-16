@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -54,8 +54,8 @@ model Coin {
   createdOn    DateTime
   transferDate DateTime
   status       CoinStatus
-  user         User?      @relation("UserWallet", fields: [ownerId], references: [id], map: "Coin_ownerId_user_fkey")
-  agent        Agent?     @relation("AgentWallet", fields: [ownerId], references: [id], map: "Coin_ownerId_agent_fkey")
+  user         User?      @relation("UserWallet", fields: [ownerId], references: [id])
+  agent        Agent?     @relation("AgentWallet", fields: [ownerId], references: [id])
 }
 
 model Item {
