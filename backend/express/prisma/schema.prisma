@@ -48,14 +48,17 @@ model Agent {
 }
 
 model Coin {
-  coinId       String     @id @default(uuid())
-  ownerId      String
-  value        Float
-  createdOn    DateTime
-  transferDate DateTime
-  status       CoinStatus
-  user         User?      @relation("UserWallet", fields: [ownerId], references: [id])
-  agent        Agent?     @relation("AgentWallet", fields: [ownerId], references: [id])
+  coinId  String  @id @default(uuid())
+  userId  String
+  agentId String?
+  orderId String
+  value   Float
+
+  createdOn    DateTime   @default(now())
+  transferDate DateTime?
+  status       CoinStatus @default(Active)
+  user         User?      @relation("UserWallet", fields: [userId], references: [id])
+  agent        Agent?     @relation("AgentWallet", fields: [agentId], references: [id])
 }
 
 model Item {
@@ -71,11 +74,11 @@ model Order {
   value           Float
   deliveryDate    DateTime
   paymentMode     PaymentMethod
-  deliveryStatus  Status
+  deliveryStatus  Status        @default(Pending)
   userId          String
-  assignedAgentId String
+  assignedAgentId String?
 
   user          User   @relation("UserOrders", fields: [userId], references: [id])
-  assignedAgent Agent  @relation("AgentOrders", fields: [assignedAgentId], references: [id])
+  assignedAgent Agent? @relation("AgentOrders", fields: [assignedAgentId], references: [id])
   items         Item[] @relation("OrderItems")
 }

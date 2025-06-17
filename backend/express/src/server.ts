@@ -2,10 +2,11 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express, { Request, Response } from "express";
-
+import authRoutes from "./routes/auth.route"
+import orderRoutes from "./routes/order.route"
 // Create a new express application instance
 const app = express();
-
+app.use(express.json());
 // Set the network port
 const port = process.env.PORT || 3000;
 
@@ -13,7 +14,8 @@ const port = process.env.PORT || 3000;
 app.get("/", (req: Request, res: Response) => {
     res.json({ message: "Welcome to the Express + TypeScript Server!" });
 });
-
+app.use("/api/auth",authRoutes);
+app.use("/api/order",orderRoutes);
 // Start the Express server
 app.listen(port, () => {
     console.log(`The server is running at http://localhost:${port}`);
