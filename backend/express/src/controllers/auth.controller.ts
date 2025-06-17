@@ -1,44 +1,29 @@
-import { Request,Response } from "express";
+import { Request, Response } from "express";
 import prisma from "../prisma";
 import { generateToken } from "../utils/token.js";
 import bcrypt from "bcryptjs";
-interface signupBody{
-  firstName : string;
-  lastName :string;
-  email : string;
-  hashPassword : string;
-  phone : string;
-}
-interface LoginRequestBody {
-  email: string;
-  password: string;
-}
-type SignupAgentBody = {
-  firstName: string;
-  lastName: string;
-  phone: string;
-  email: string;
-  hashPassword: string;
-};
+import {
+  signupSchema,
+  loginSchema,
+  signupAgentSchema,
+  loginAgentSchema,
+} from "../validators/auth";
 
-type LoginAgentBody = {
-  email: string;
-  password: string;
-};
-
-export const createUser = async(req:Request,res:Response)=>{
+export const createUser = async (req: Request, res: Response) => {
   try {
-    const { firstName ,lastName,email,hashPassword,phone} : signupBody= req.body;
-     if (!firstName || !lastName || !phone || !email || !hashPassword) {
-      res.status(400).json({ message: "All fields are required." });
-      return ;
+    const parseResult = signupSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({ message: parseResult.error.errors[0].message });
+      return;
     }
-    const existingUser =  await prisma.user.findUnique({
+    const { firstName, lastName, email, hashPassword, phone } =
+      parseResult.data;
+    const existingUser = await prisma.user.findUnique({
       where: { email },
     });
-    if(existingUser){
-       res.status(400).json({message:"User already exists"});
-       return;
+    if (existingUser) {
+      res.status(400).json({ message: "User already exists" });
+      return;
     }
     const hashedpassword = await bcrypt.hash(hashPassword, 10);
     const user = await prisma.user.create({
@@ -46,19 +31,31 @@ export const createUser = async(req:Request,res:Response)=>{
         firstName: firstName,
         lastName,
         email,
-        hashPassword : hashedpassword,
+        hashPassword: hashedpassword,
         phone,
-    }});
+      },
+    });
     const token = generateToken(user.id);
-    res.json({success:true,user,token,message:"user created successfully"});
-  } catch (error:any) {
+    res.json({
+      success: true,
+      user,
+      token,
+      message: "user created successfully",
+    });
+  } catch (error: any) {
     console.log(error);
-     res.status(500).json({ success: false, message: "Internal server error" });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
-}
+};
+
 export const Login = async (req: Request, res: Response) => {
   try {
-    const { email, password } : LoginRequestBody = req.body;
+    const parseResult = loginSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({ message: parseResult.error.errors[0].message });
+      return;
+    }
+    const { email, password } = parseResult.data;
 
     const user = await prisma.user.findUnique({ where: { email } });
 
@@ -75,7 +72,7 @@ export const Login = async (req: Request, res: Response) => {
     }
 
     const token = generateToken(user.id);
-
+    console.log(token);
     const { hashPassword, ...userWithoutPassword } = user;
 
     res.status(200).json({
@@ -89,14 +86,16 @@ export const Login = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
 export const createAgent = async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, phone, email, hashPassword }: SignupAgentBody = req.body;
-
-    if (!firstName || !lastName || !phone || !email || !hashPassword) {
-      res.status(400).json({ message: "All fields are required." });
+    const parseResult = signupAgentSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({ message: parseResult.error.errors[0].message });
       return;
     }
+    const { firstName, lastName, phone, email, hashPassword } =
+      parseResult.data;
 
     const existingAgent = await prisma.agent.findUnique({ where: { email } });
 
@@ -130,9 +129,15 @@ export const createAgent = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
 export const loginAgent = async (req: Request, res: Response) => {
   try {
-    const { email, password }: LoginAgentBody = req.body;
+    const parseResult = loginAgentSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({ message: parseResult.error.errors[0].message });
+      return;
+    }
+    const { email, password } = parseResult.data;
 
     const agent = await prisma.agent.findUnique({ where: { email } });
 
