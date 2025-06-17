@@ -1,0 +1,6 @@
+Flask>=2.0
+python-dotenv>=0.15
+groq>=0.5.0
+geopy>=2.0
+# requests>=2.25 # Only if you use it for real API calls in recommendation_service
+pandas # Was in original budget.py, but not used in the refactored service. Add if needed.

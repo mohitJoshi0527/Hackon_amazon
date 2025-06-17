@@ -1,0 +1,24 @@
+Invoke-RestMethod -Uri "http://localhost:5000/api/budget/questionnaire" -Method GET  //from this we get questionnaire_answers
+
+$body = @{
+    # Use values exactly as they appear in the options
+    age_group = $questionnaire.age_group.options[0]  # Use the first option
+    monthly_budget = 5000
+    primary_goal = $questionnaire.primary_goal.options[0]  # Use the first option
+    shopping_behavior = $questionnaire.shopping_behavior.options[0]  # Use the first option
+    top_categories = @($questionnaire.top_categories.options[0], $questionnaire.top_categories.options[1])
+    unplanned_purchases = $questionnaire.unplanned_purchases.options[0]  # Use the first option
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:5000/api/budget/plan" -Method POST -Body $body -ContentType "application/json"
+
+
+Invoke-RestMethod -Uri "http://localhost:5000/api/recommendations/?product=laptop&city=Mumbai" -Method GET | ConvertTo-Json -Depth 10  # for recommandations
+
+
+
+$chatBody = @{
+    message = "How can I save money on groceries?"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://localhost:5000/api/chatbot/chat" -Method POST -Body $chatBody -ContentType "application/json"   # for chatbot
