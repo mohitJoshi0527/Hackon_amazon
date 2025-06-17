@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -21,7 +21,7 @@ enum PaymentMethod {
 
 enum Status {
   Delivered
-  Pending
+  Pending 
 }
 
 model User {
@@ -46,16 +46,16 @@ model Agent {
   hashPassword String
   orders       Order[] @relation("AgentOrders")
 }
-
 model Coin {
   coinId       String     @id @default(uuid())
-  ownerId      String
+  userId      String
+  agentId     String
   value        Float
   createdOn    DateTime
   transferDate DateTime
   status       CoinStatus
-  user         User?      @relation("UserWallet", fields: [ownerId], references: [id])
-  agent        Agent?     @relation("AgentWallet", fields: [ownerId], references: [id])
+  user         User?      @relation("UserWallet", fields: [userId], references: [id])
+  agent        Agent?     @relation("AgentWallet", fields: [agentId], references: [id])
 }
 
 model Item {
@@ -71,7 +71,7 @@ model Order {
   value           Float
   deliveryDate    DateTime
   paymentMode     PaymentMethod
-  deliveryStatus  Status
+  deliveryStatus  Status      @default(Pending)
   userId          String
   assignedAgentId String
 
