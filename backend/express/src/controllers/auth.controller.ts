@@ -16,7 +16,7 @@ export const createUser = async (req: Request, res: Response) => {
       res.status(400).json({ message: parseResult.error.errors[0].message });
       return;
     }
-    const { firstName, lastName, email, hashPassword, phone } =
+    const { firstName, lastName, email, password, phone } =
       parseResult.data;
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -25,7 +25,7 @@ export const createUser = async (req: Request, res: Response) => {
       res.status(400).json({ message: "User already exists" });
       return;
     }
-    const hashedpassword = await bcrypt.hash(hashPassword, 10);
+    const hashedpassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         firstName: firstName,
@@ -50,7 +50,6 @@ export const createUser = async (req: Request, res: Response) => {
 
 export const Login = async (req: Request, res: Response) => {
   try {
-    console.log("connection is done");
     const parseResult = loginSchema.safeParse(req.body);
     if (!parseResult.success) {
       res.status(400).json({ message: parseResult.error.errors[0].message });
@@ -73,9 +72,8 @@ export const Login = async (req: Request, res: Response) => {
     }
 
     const token = generateToken(user.id);
-    console.log(token);
     const { hashPassword, ...userWithoutPassword } = user;
-
+    console.log("Toeken :",token);
     res.status(200).json({
       success: true,
       message: "Login successful",

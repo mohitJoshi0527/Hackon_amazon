@@ -4,7 +4,7 @@
   "description": "HackOn Amazon S5",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon dist/server/js",
+    "dev": "nodemon dist/server.js",
     "start": "node dist/server.js",
     "compile": "npx tsc",
     "test": "echo \"Error: no test specified\" && exit 1"

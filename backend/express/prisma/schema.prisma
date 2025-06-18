@@ -37,7 +37,7 @@ model User {
 }
 
 model Agent {
-  id           String  @id @default(uuid())
+  id           Int     @id @default(autoincrement())
   firstName    String
   lastName     String
   phone        String  @unique
@@ -48,9 +48,9 @@ model Agent {
 }
 
 model Coin {
-  coinId  String  @id @default(uuid())
+  coinId  String @id @default(uuid())
   userId  String
-  agentId String?
+  agentId Int?
   orderId String
   value   Float
 
@@ -62,7 +62,7 @@ model Coin {
 }
 
 model Item {
-  itemId String @id @default(uuid())
+  itemId Int    @id @default(autoincrement())
   name   String
   price  Float
 
@@ -76,7 +76,8 @@ model Order {
   paymentMode     PaymentMethod
   deliveryStatus  Status        @default(Pending)
   userId          String
-  assignedAgentId String?
+  assignedAgentId Int?
+  signature       String?
 
   user          User   @relation("UserOrders", fields: [userId], references: [id])
   assignedAgent Agent? @relation("AgentOrders", fields: [assignedAgentId], references: [id])

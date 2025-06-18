@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { EXPRESS_API } from "@env"; // Optional if .env is working
+import { EXPRESS_API } from "@env";
 
 const LoginScreen = () => {
   const [email, setEmail] = useState("");
@@ -9,16 +9,13 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     try {
-      const response = await fetch(
-        `http://192.168.100.59:8000/api/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, password }),
-        }
-      );
+      const response = await fetch(`${EXPRESS_API}/auth/signin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
       const data = await response.json();
 
@@ -28,7 +25,7 @@ const LoginScreen = () => {
       }
 
       await AsyncStorage.setItem("token", data.token);
-      await AsyncStorage.setItem("user", JSON.stringify(data.user)); // Optional
+      await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
       Alert.alert("Login Successful", `Welcome, ${data.user.firstName}`);
     } catch (error) {
