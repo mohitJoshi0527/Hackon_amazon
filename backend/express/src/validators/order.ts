@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const itemPickSchema = z.object({
-    itemId: z.string().min(1, "Invalid itemId"),
+    itemId: z.number().min(1, "Invalid itemId"),
     quantity: z.number().min(1, "Quantity must be at least 1"),
 });
 

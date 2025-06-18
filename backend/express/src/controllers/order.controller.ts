@@ -4,6 +4,8 @@ import { randomBytes } from "crypto";
 import prisma from "../prisma";
 import jwt from "jsonwebtoken";
 import { PaymentMethod } from "../../generated/prisma";
+import { Agent } from "http";
+import { connect } from "http2";
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
@@ -16,7 +18,7 @@ export const createOrder = async (req: Request, res: Response) => {
     const { items, userId, paymentMode } = parseResult.data;
 
     let value = 0;
-    const itemIds: string[] = [];
+    const itemIds: number[] = [];
 
     for (let i = 0; i < items.length; i++) {
       const itemId = items[i].itemId;
@@ -39,6 +41,7 @@ export const createOrder = async (req: Request, res: Response) => {
           value,
           deliveryDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000),
           paymentMode,
+          assignedAgentId: "516fdf07-5622-4221-87cf-13c0825bd12f",
           items: {
             connect: itemIds.map((id) => ({ itemId: id })),
           },
@@ -51,6 +54,7 @@ export const createOrder = async (req: Request, res: Response) => {
             userId,
             orderId: order.orderId,
             value,
+            agentId : "516fdf07-5622-4221-87cf-13c0825bd12f",
           },
         });
       }
@@ -80,24 +84,28 @@ export const getOrder = async (req: Request, res: Response) => {
       },
     });
 
-    const ordersWithCoins = orderList.map((order) => {
-      let signedCoin: string | null = null;
+    const ordersWithCoins = await Promise.all(
+      orderList.map(async (order) => {
+        let signedCoin: string | null = null;
 
-      if (order.signature) {
-        const coinPayload = prisma.coin.findFirst({ 
-          where : {
-            orderId: order.orderId
+        if (order.signature) {
+          const coinPayload = await prisma.coin.findFirst({
+            where: {
+              orderId: order.orderId,
+            },
+          });
+
+          if (coinPayload) {
+            signedCoin = jwt.sign(coinPayload, order.signature, {
+              algorithm: "HS256",
+            });
           }
-        })
+        }
 
-        signedCoin = jwt.sign(coinPayload, order.signature, {
-          algorithm: "HS256"
-        });
-      }
-
-      const { signature, ...rest } = order;
-      return { ...rest, coin: signedCoin};
-    }); 
+        const { signature, ...rest } = order;
+        return { ...rest, coin: signedCoin };
+      })
+    );
 
     res.status(200).json(ordersWithCoins);
   } catch (error) {

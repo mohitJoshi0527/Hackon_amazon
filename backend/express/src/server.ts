@@ -6,6 +6,7 @@ import express, { Request, Response } from "express";
 import customerAuthRoutes from "./routes/customer/auth.route"
 import customerOrderRoutes from "./routes/customer/order.route"
 import agentAuthRoutes from "./routes/agent/auth.route";
+import itemRouter from "./routes/customer/item.route";
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -17,6 +18,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 app.use("/api/c/auth",customerAuthRoutes);
 app.use("/api/c/order",customerOrderRoutes);
+app.use("/api/c/",itemRouter);
 
 app.use("/api/a/auth",agentAuthRoutes);
 

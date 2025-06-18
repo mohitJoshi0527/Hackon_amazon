@@ -7,12 +7,16 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
+  Modal,
+  Button,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { EXPRESS_API } from "@env";
 
 const OrderScreen = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCoin, setSelectedCoin] = useState(null);
 
   const fetchOrders = async () => {
     try {
@@ -23,16 +27,13 @@ const OrderScreen = () => {
         return;
       }
 
-      const headersList = {
-        Accept: "*/*",
-        "User-Agent": "React Native App",
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      };
-
       const response = await fetch(`${EXPRESS_API}/order`, {
         method: "GET",
-        headers: headersList,
+        headers: {
+          Accept: "*/*",
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (!response.ok) {
@@ -73,6 +74,14 @@ const OrderScreen = () => {
       <Text style={styles.label}>
         Agent ID: {item.assignedAgentId ?? "Not assigned"}
       </Text>
+
+      {item.coin && (
+        <Button
+          title="Show Coin QR"
+          onPress={() => setSelectedCoin(item.coin)}
+          color="#007bff"
+        />
+      )}
     </View>
   );
 
@@ -89,6 +98,16 @@ const OrderScreen = () => {
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}
+
+      <Modal visible={!!selectedCoin} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.qrLabel}>Coin QR Code</Text>
+            <QRCode value={selectedCoin || ""} size={250} />
+            <Button title="Close" onPress={() => setSelectedCoin(null)} />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -105,6 +124,24 @@ const styles = StyleSheet.create({
   },
   title: { fontWeight: "bold", fontSize: 16, marginBottom: 5 },
   label: { marginTop: 4, fontSize: 14 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 30,
+    borderRadius: 10,
+    alignItems: "center",
+    elevation: 5,
+  },
+  qrLabel: {
+    fontSize: 18,
+    marginBottom: 15,
+    fontWeight: "bold",
+  },
 });
 
 export default OrderScreen;

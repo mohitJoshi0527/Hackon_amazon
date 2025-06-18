@@ -7,7 +7,7 @@ import LoginScreen from "../screens/Login";
 import SignUpScreen from "../screens/SignUp";
 import ProfileScreen from "../screens/Profile";
 import OrderScreen from "../screens/Order";
-
+import HomeScreen from "../screens/Home";
 const Tab = createBottomTabNavigator();
 
 const AuthTabs = () => (
@@ -21,6 +21,7 @@ const AppTabs = () => (
   <Tab.Navigator>
     <Tab.Screen name="Profile" component={ProfileScreen} />
     <Tab.Screen name="Orders" component={OrderScreen} />
+    <Tab.Screen name="Home" component={HomeScreen} />
   </Tab.Navigator>
 );
 
