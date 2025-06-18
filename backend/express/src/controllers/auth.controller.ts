@@ -50,6 +50,7 @@ export const createUser = async (req: Request, res: Response) => {
 
 export const Login = async (req: Request, res: Response) => {
   try {
+    console.log("connection is done");
     const parseResult = loginSchema.safeParse(req.body);
     if (!parseResult.success) {
       res.status(400).json({ message: parseResult.error.errors[0].message });

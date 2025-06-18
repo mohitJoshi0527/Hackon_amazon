@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import cors from "cors";
 dotenv.config();
 
 import express, { Request, Response } from "express";
@@ -6,6 +7,7 @@ import authRoutes from "./routes/auth.route"
 import orderRoutes from "./routes/order.route"
 // Create a new express application instance
 const app = express();
+app.use(cors());
 app.use(express.json());
 // Set the network port
 const port = process.env.PORT || 3000;
