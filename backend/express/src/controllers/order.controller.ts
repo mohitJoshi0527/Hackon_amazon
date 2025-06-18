@@ -4,8 +4,6 @@ import { randomBytes } from "crypto";
 import prisma from "../prisma";
 import jwt from "jsonwebtoken";
 import { PaymentMethod } from "../../generated/prisma";
-import { Agent } from "http";
-import { connect } from "http2";
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
@@ -86,6 +84,7 @@ export const getOrder = async (req: Request, res: Response) => {
 
     const ordersWithCoins = await Promise.all(
       orderList.map(async (order) => {
+        const { signature, ...rest} = order;
         let signedCoin: string | null = null;
 
         if (order.signature) {
@@ -96,13 +95,12 @@ export const getOrder = async (req: Request, res: Response) => {
           });
 
           if (coinPayload) {
-            signedCoin = jwt.sign(coinPayload, order.signature, {
+            signedCoin = jwt.sign({coinPayload, ...rest}, order.signature, {
               algorithm: "HS256",
             });
           }
         }
 
-        const { signature, ...rest } = order;
         return { ...rest, coin: signedCoin };
       })
     );

@@ -73,7 +73,7 @@ export const Login = async (req: Request, res: Response) => {
 
     const token = generateToken(user.id);
     const { hashPassword, ...userWithoutPassword } = user;
-    console.log("Toeken :",token);
+    console.log("Token :",token);
     res.status(200).json({
       success: true,
       message: "Login successful",
