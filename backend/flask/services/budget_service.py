@@ -199,3 +199,25 @@ class BudgetService:
                 "type": "choice"
             }
         }
+
+    def process_chatbot_update(self, update_message):
+        """
+        Process budget updates from chatbot interface
+        """
+        try:
+            from services.chatbot_service import ChatbotService
+            chatbot = ChatbotService()
+            
+            # Check if it's a complex request (multiple operations)
+            if any(word in update_message.lower() for word in [' and ', ' also ', ' then ', ', ']):
+                return chatbot.update_budget_from_complex_request(update_message)
+            else:
+                return chatbot.process_chatbot_budget_update(update_message)
+                
+        except Exception as e:
+            print(f"Error in budget service chatbot update: {e}")
+            return {
+                'success': False,
+                'message': 'Failed to process budget update through chatbot service.',
+                'error': str(e)
+            }

@@ -1,6 +1,7 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os # For session key
+from datetime import datetime
 
 # Import blueprints
 from routes.budget_routes import budget_bp
@@ -37,6 +38,45 @@ def create_app():
                            "chatbot_current_budget": "/api/chatbot/current_budget (GET)",
                            "recommendations": "/api/recommendations/?product=<product_name>&city=<user_city> (GET)"
                        })
+
+    @app.route('/api/chatbot/update-budget', methods=['POST'])
+    def chatbot_update_budget():
+        """Handle budget updates from chatbot interface"""
+        try:
+            data = request.get_json()
+            
+            if not data or 'message' not in data:
+                return jsonify({'error': 'Message is required'}), 400
+            
+            message = data['message']
+            current_budget = data.get('current_budget', {})
+            
+            print(f"🤖 Chatbot budget update request: {message}")
+            
+            # Use chatbot service to process the update
+            from services.chatbot_service import ChatbotService
+            chatbot_service = ChatbotService()
+            
+            # Process the update
+            result = chatbot_service.process_chatbot_budget_update(message)
+            
+            if result['success']:
+                return jsonify({
+                    'success': True,
+                    'message': result['message'],
+                    'updated_budget': result.get('updated_budget', {}),
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': result['message'],
+                    'suggestions': result.get('suggestions', [])
+                }), 400
+                
+        except Exception as e:
+            print(f"Error in chatbot budget update: {e}")
+            return jsonify({'error': 'Failed to process budget update'}), 500
 
     return app
 

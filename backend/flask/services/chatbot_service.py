@@ -12,36 +12,75 @@ class ChatbotService:
         self.budget_service = BudgetService()
         self.conversation_history_store = {}
         self.pending_budget_updates = {}
-        # Add caching for budget data
+        # Reduce cache duration and add file modification tracking
         self._cached_budget = None
         self._cache_timestamp = None
-        self._cache_duration = 30  # Cache for 30 seconds
+        self._cache_duration = 10  # Reduced to 10 seconds for more frequent updates
+        self._last_file_mtime = None
 
-    def _load_user_budget(self):
-        """Load user's budget plan with smart caching"""
+    def _get_budget_file_mtime(self):
+        """Get the modification time of budget_plan.json"""
+        try:
+            budget_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'budget_plan.json')
+            if os.path.exists(budget_file_path):
+                return os.path.getmtime(budget_file_path)
+        except Exception as e:
+            print(f"Error getting budget file mtime: {e}")
+        return None
+
+    def _is_budget_file_modified(self):
+        """Check if budget_plan.json has been modified since last cache"""
+        current_mtime = self._get_budget_file_mtime()
+        if current_mtime and self._last_file_mtime:
+            return current_mtime > self._last_file_mtime
+        return True  # If we can't determine, assume it's modified
+
+    def _load_user_budget(self, force_refresh=False):
+        """Load user's budget plan with smart caching and file modification detection"""
         current_time = datetime.datetime.now().timestamp()
         
-        # Use cached data if it's still fresh
-        if (self._cached_budget and self._cache_timestamp and 
-            current_time - self._cache_timestamp < self._cache_duration):
-            return self._cached_budget
+        # Check if budget file has been modified
+        file_modified = self._is_budget_file_modified()
         
-        # Load fresh data only when cache is expired
-        budget_data = self.budget_service.load_budget_plan(force_refresh=False)
+        # Force refresh if:
+        # 1. Explicitly requested
+        # 2. Cache is expired
+        # 3. Budget file has been modified
+        # 4. No cached data exists
+        should_refresh = (
+            force_refresh or 
+            not self._cached_budget or 
+            not self._cache_timestamp or 
+            current_time - self._cache_timestamp > self._cache_duration or
+            file_modified
+        )
         
-        # Update cache
-        if budget_data:
-            self._cached_budget = budget_data
-            self._cache_timestamp = current_time
-            print(f"🔄 Refreshed budget cache at {datetime.datetime.now().strftime('%H:%M:%S')}")
+        if should_refresh:
+            print(f"🔄 Loading fresh budget data - Force: {force_refresh}, File modified: {file_modified}, Cache expired: {current_time - (self._cache_timestamp or 0) > self._cache_duration}")
+            
+            # Load fresh data from file
+            budget_data = self.budget_service.load_budget_plan(force_refresh=True)
+            
+            # Update cache and file modification time
+            if budget_data:
+                self._cached_budget = budget_data
+                self._cache_timestamp = current_time
+                self._last_file_mtime = self._get_budget_file_mtime()
+                print(f"✅ Budget cache updated at {datetime.datetime.now().strftime('%H:%M:%S')}")
+                print(f"📊 Current budget total: ₹{budget_data.get('budget_plan', {}).get('total_budget', 0):,}")
+            else:
+                print("❌ Failed to load budget data")
+        else:
+            print(f"📋 Using cached budget data (age: {current_time - self._cache_timestamp:.1f}s)")
         
-        return budget_data
+        return self._cached_budget
 
     def _clear_budget_cache(self):
         """Clear the budget cache to force fresh load"""
         self._cached_budget = None
         self._cache_timestamp = None
-        print("🗑️ Budget cache cleared")
+        self._last_file_mtime = None
+        print("🗑️ Budget cache cleared - next request will load fresh data")
 
     def _parse_budget_update_request(self, user_input):
         """Parse budget update requests from user input"""
@@ -161,9 +200,10 @@ Would you like me to proceed with this change? Please reply with:
     def _execute_budget_update(self, update_request):
         """Execute the actual budget update"""
         try:
-            # Load current budget data
-            current_data = self._load_user_budget()
+            # Load current budget data with force refresh
+            current_data = self._load_user_budget(force_refresh=True)
             if not current_data or 'budget_plan' not in current_data:
+                print("❌ No budget data found for update")
                 return False
             
             # Update the specific category
@@ -186,19 +226,34 @@ Would you like me to proceed with this change? Please reply with:
             if success:
                 # Clear cache to force fresh load on next request
                 self._clear_budget_cache()
-                print(f"Budget updated successfully: {update_request['category']} = ₹{update_request['amount']}")
+                print(f"✅ Budget updated successfully: {update_request['category']} = ₹{update_request['amount']:,}")
+                print(f"📊 New total budget: ₹{new_total:,}")
+                
+                # Wait a moment for file system to update, then verify the change
+                import time
+                time.sleep(0.1)
+                
+                # Verify the update by loading fresh data
+                verification_data = self._load_user_budget(force_refresh=True)
+                if verification_data and 'budget_plan' in verification_data:
+                    actual_amount = verification_data['budget_plan'].get(update_request['category'], 0)
+                    if actual_amount == update_request['amount']:
+                        print(f"✅ Update verified: {update_request['category']} is now ₹{actual_amount:,}")
+                    else:
+                        print(f"⚠️ Update verification failed: Expected ₹{update_request['amount']:,}, got ₹{actual_amount:,}")
                 
             return success
             
         except Exception as e:
-            print(f"Error executing budget update: {e}")
+            print(f"❌ Error executing budget update: {e}")
             return False
 
     def _get_base_prompt(self):
-        """Get the base prompt for the Amazon budgeting chatbot"""
-        # Load budget data with caching
-        user_budget_data = self._load_user_budget()
+        """Get the base prompt for the Amazon budgeting chatbot with fresh budget data"""
+        # Always load fresh budget data for system prompt
+        user_budget_data = self._load_user_budget(force_refresh=False)  # Let caching work, but respect file changes
         current_date = datetime.datetime.now().strftime("%B %Y")
+        current_time = datetime.datetime.now().strftime("%H:%M:%S")
         
         base_prompt = f"""
 You are Amazon Budget Assistant, a helpful AI chatbot specialized in Amazon shopping budget management and smart spending advice.
@@ -213,6 +268,7 @@ Your primary role is to help users:
 
 Current Context:
 - Current Month: {current_date}
+- Data loaded at: {current_time}
 - User has budget planning system in place: {'Yes' if user_budget_data else 'No'}
 
 BUDGET UPDATE CAPABILITIES:
@@ -255,17 +311,24 @@ Available budget categories:
             emergency = safe_int(budget_info.get('Emergency/Unplanned Budget', 0))
             
             base_prompt += f"""
-User's Current Budget Plan (Latest Data):
-- Total Monthly Budget: ₹{total_budget:,}
-- Electronics & Accessories: ₹{electronics:,}
-- Groceries & Household Items: ₹{groceries:,}
-- Fashion & Beauty: ₹{fashion:,}
-- Books & Media: ₹{books:,}
-- Home & Kitchen: ₹{home:,}
-- Emergency/Unplanned Budget: ₹{emergency:,}
+CURRENT BUDGET PLAN (Live Data from {current_time}):
+==========================================
+Total Monthly Budget: ₹{total_budget:,}
 
-DEBUG INFO: Raw budget data loaded at {datetime.datetime.now().strftime('%H:%M:%S')}
-Raw values: Electronics={budget_info.get('Electronics & Accessories')}, Books={budget_info.get('Books & Media')}, Home={budget_info.get('Home & Kitchen')}, Groceries={budget_info.get('Groceries & Household Items')}, Emergency={budget_info.get('Emergency/Unplanned Budget')}
+Category Breakdown:
+• Electronics & Accessories: ₹{electronics:,}
+• Books & Media: ₹{books:,}
+• Home & Kitchen: ₹{home:,}
+• Groceries & Household Items: ₹{groceries:,}
+• Fashion & Beauty: ₹{fashion:,}
+• Emergency/Unplanned Budget: ₹{emergency:,}
+==========================================
+
+IMPORTANT: Always use these EXACT current budget amounts when discussing user's budget. 
+These values are live and up-to-date from the budget file.
+
+Data Freshness: Loaded at {current_time}
+Cache Status: {'Fresh data' if datetime.datetime.now().timestamp() - (self._cache_timestamp or 0) < 5 else 'Cached data'}
 """
             
         if user_budget_data and 'questionnaire_answers' in user_budget_data:
@@ -275,20 +338,23 @@ User Preferences:
 - Age Group: {q_answers.get('age_group', 'Not specified')}
 - Shopping Behavior: {q_answers.get('shopping_behavior', 'Not specified')}
 - Top Categories: {q_answers.get('top_categories', 'Not specified')}
+- Monthly Budget Goal: ₹{q_answers.get('monthly_budget', 'Not specified')}
 """
 
         base_prompt += """
 Key Guidelines:
-1. Always use the LATEST budget data shown above when discussing budgets
-2. Always consider the user's budget constraints when giving advice
-3. Suggest budget-friendly alternatives when items are expensive
-4. Remind users about their spending limits politely
-5. Provide specific Amazon shopping tips (deals, prime benefits, etc.)
-6. Help track spending across different categories
-7. Be encouraging and supportive about budget management
-8. Offer seasonal shopping advice and sale alerts
-9. Suggest ways to maximize value for money
-10. ACTIVELY HELP WITH BUDGET UPDATES when requested
+1. ALWAYS use the EXACT budget amounts shown above - they are live and current
+2. When users ask about their budget, reference the specific amounts listed
+3. Always consider the user's budget constraints when giving advice
+4. Suggest budget-friendly alternatives when items are expensive
+5. Remind users about their spending limits politely
+6. Provide specific Amazon shopping tips (deals, prime benefits, etc.)
+7. Help track spending across different categories
+8. Be encouraging and supportive about budget management
+9. Offer seasonal shopping advice and sale alerts
+10. Suggest ways to maximize value for money
+11. ACTIVELY HELP WITH BUDGET UPDATES when requested
+12. Always confirm current amounts before suggesting changes
 
 Response Style:
 - Be friendly, helpful, and encouraging
@@ -301,18 +367,8 @@ Response Style:
 - Use clear formatting with line breaks for better readability
 - Start recommendations with "Here are some options:" or similar phrases
 
-You can help with:
-✅ Product recommendations within budget
-✅ Price comparison and alternatives
-✅ Spending tracking and analysis  
-✅ Deal hunting and sale timing
-✅ Budget optimization tips
-✅ Category-wise spending advice
-✅ Prime membership benefits
-✅ Return and refund guidance
-✅ BUDGET UPDATES AND MODIFICATIONS
-
-If asked about topics unrelated to Amazon shopping or budgeting, politely redirect the conversation back to your expertise area.
+CRITICAL: When discussing budget amounts, always reference the current live data shown above.
+If a user asks "what's my current budget", show them the exact breakdown listed in this prompt.
 """
         return base_prompt
 
@@ -347,7 +403,7 @@ If asked about topics unrelated to Amazon shopping or budgeting, politely redire
         return formatted_response
 
     def get_chat_response(self, user_input: str, session_id: str = "default_session"):
-        """Handles a single chat interaction."""
+        """Handles a single chat interaction with fresh budget data."""
         
         # Check if user is confirming a pending budget update
         if session_id in self.pending_budget_updates:
@@ -360,15 +416,16 @@ If asked about topics unrelated to Amazon shopping or budgeting, politely redire
         if budget_update_request:
             return self._confirm_budget_update(session_id, budget_update_request)
         
-        # Only refresh system prompt if cache is expired
+        # Always get fresh system prompt to ensure latest budget data
         base_prompt = self._get_base_prompt()
         
+        # Initialize or update conversation history with fresh system prompt
         if session_id not in self.conversation_history_store:
             self.conversation_history_store[session_id] = [{"role": "system", "content": base_prompt}]
         else:
-            # Only update system prompt if we have fresh data
-            if self._cache_timestamp and datetime.datetime.now().timestamp() - self._cache_timestamp < 5:
-                self.conversation_history_store[session_id][0] = {"role": "system", "content": base_prompt}
+            # Always update the system prompt to ensure AI has latest budget data
+            self.conversation_history_store[session_id][0] = {"role": "system", "content": base_prompt}
+            print(f"📝 Updated system prompt with fresh budget data for session {session_id}")
 
         conversation_history = self.conversation_history_store[session_id]
         
@@ -377,7 +434,7 @@ If asked about topics unrelated to Amazon shopping or budgeting, politely redire
         
         try:
             response = self.client.chat.completions.create(
-                model="llama-3.3-70b-versatile", # Ensure this model is available
+                model="llama-3.3-70b-versatile",
                 messages=conversation_history,
                 temperature=0.7,
                 max_tokens=256,
@@ -389,7 +446,9 @@ If asked about topics unrelated to Amazon shopping or budgeting, politely redire
             
             # Keep conversation history manageable
             if len(conversation_history) > 21:  # 1 system + 10 exchanges (20 messages)
-                self.conversation_history_store[session_id] = [conversation_history[0]] + conversation_history[-20:]
+                # Always keep the updated system prompt
+                fresh_system_prompt = self._get_base_prompt()
+                self.conversation_history_store[session_id] = [{"role": "system", "content": fresh_system_prompt}] + conversation_history[-20:]
             else:
                 self.conversation_history_store[session_id] = conversation_history
             
@@ -403,10 +462,158 @@ If asked about topics unrelated to Amazon shopping or budgeting, politely redire
             return "Sorry, I'm having trouble connecting right now. Please try again! 😅"
 
     def reset_conversation(self, session_id: str = "default_session"):
+        """Reset conversation with fresh budget data"""
+        # Clear budget cache to ensure fresh data
+        self._clear_budget_cache()
         base_prompt = self._get_base_prompt()
         self.conversation_history_store[session_id] = [{"role": "system", "content": base_prompt}]
         return "Conversation reset! How can I help you with your Amazon shopping today?"
 
     def get_current_budget_info(self):
-        """Get current budget info with caching"""
-        return self._load_user_budget()
+        """Get current budget info with fresh data"""
+        return self._load_user_budget(force_refresh=True)
+
+    def force_budget_refresh(self):
+        """Public method to force budget cache refresh"""
+        self._clear_budget_cache()
+        fresh_data = self._load_user_budget(force_refresh=True)
+        print(f"🔄 Forced budget refresh completed at {datetime.datetime.now().strftime('%H:%M:%S')}")
+        return fresh_data
+
+    def process_chatbot_budget_update(self, message):
+        """
+        Process budget update requests from the frontend chatbot.
+        This method is called by the frontend budgetService.
+        """
+        try:
+            print(f"🤖 Processing chatbot budget update: {message}")
+            
+            # Parse the update request
+            update_request = self._parse_budget_update_request(message)
+            
+            if not update_request:
+                return {
+                    'success': False,
+                    'message': 'Could not understand the budget update request. Please be more specific.',
+                    'suggestions': [
+                        'Try: "increase Electronics by 5000"',
+                        'Try: "set Books budget to 2000"',
+                        'Try: "allocate 3000 for Home & Kitchen"',
+                        'Try: "reduce Fashion by 500"'
+                    ]
+                }
+            
+            # Execute the update immediately (skip confirmation for API calls)
+            success = self._execute_budget_update(update_request)
+            
+            if success:
+                # Get updated budget to show current state
+                updated_budget = self._load_user_budget(force_refresh=True)
+                total_budget = updated_budget.get('budget_plan', {}).get('total_budget', 0)
+                
+                return {
+                    'success': True,
+                    'message': f"Budget updated successfully!\n\n• {update_request['category']}: ₹{update_request['amount']:,}\n• Total Budget: ₹{total_budget:,}",
+                    'updated_budget': updated_budget
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': 'Failed to update budget. Please try again or update manually from the home screen.',
+                    'error': 'Update execution failed'
+                }
+                
+        except Exception as e:
+            print(f"❌ Error in process_chatbot_budget_update: {e}")
+            return {
+                'success': False,
+                'message': 'An error occurred while processing your budget update.',
+                'error': str(e)
+            }
+
+    def update_budget_from_complex_request(self, complex_message):
+        """
+        Handle complex budget update requests with multiple operations.
+        Example: "increase electronics by 2000 and reduce books by 500"
+        """
+        try:
+            print(f"🔄 Processing complex budget request: {complex_message}")
+            
+            # Split complex requests by 'and', 'also', 'then'
+            separators = [' and ', ' also ', ' then ', ', ']
+            parts = [complex_message.lower()]
+            
+            for sep in separators:
+                new_parts = []
+                for part in parts:
+                    new_parts.extend(part.split(sep))
+                parts = new_parts
+            
+            updates = []
+            total_changes = 0
+            
+            # Process each part
+            for part in parts:
+                part = part.strip()
+                if not part:
+                    continue
+                    
+                update_request = self._parse_budget_update_request(part)
+                if update_request:
+                    updates.append(update_request)
+            
+            if not updates:
+                return {
+                    'success': False,
+                    'message': 'Could not parse any budget updates from your request.',
+                    'suggestions': [
+                        'Try: "increase Electronics by 2000 and reduce Books by 500"',
+                        'Try: "set Home to 3000 and allocate 1000 for Fashion"'
+                    ]
+                }
+            
+            # Execute all updates
+            successful_updates = []
+            failed_updates = []
+            
+            for update in updates:
+                success = self._execute_budget_update(update)
+                if success:
+                    successful_updates.append(update)
+                    total_changes += 1
+                else:
+                    failed_updates.append(update)
+            
+            # Prepare response
+            if successful_updates:
+                updated_budget = self._load_user_budget(force_refresh=True)
+                total_budget = updated_budget.get('budget_plan', {}).get('total_budget', 0)
+                
+                success_msg = f"Successfully updated {len(successful_updates)} budget categories:\n\n"
+                for update in successful_updates:
+                    success_msg += f"• {update['category']}: ₹{update['amount']:,}\n"
+                success_msg += f"\nTotal Budget: ₹{total_budget:,}"
+                
+                if failed_updates:
+                    success_msg += f"\n\nNote: {len(failed_updates)} updates failed."
+                
+                return {
+                    'success': True,
+                    'message': success_msg,
+                    'updated_budget': updated_budget,
+                    'total_updates': len(successful_updates)
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': 'All budget updates failed. Please try again or update manually.',
+                    'error': 'All updates failed'
+                }
+                
+        except Exception as e:
+            print(f"❌ Error in complex budget update: {e}")
+            return {
+                'success': False,
+                'message': 'Error processing complex budget request.',
+                'error': str(e)
+            }

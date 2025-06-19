@@ -171,3 +171,31 @@ def get_budget_file_info():
             "error": f"Failed to get file info: {str(e)}",
             "exists": False
         }), 500
+
+@budget_bp.route('/create-from-questionnaire', methods=['POST'])
+def create_budget_from_questionnaire():
+    """Create budget plan from questionnaire answers - used by frontend"""
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+    
+    # Get budget recommendation
+    recommendation = budget_service.get_budget_recommendation(data)
+    if not recommendation:
+        return jsonify({"error": "Failed to generate budget recommendation"}), 500
+    
+    if budget_service.save_budget_plan(data, recommendation):
+        return jsonify({
+            "message": "Budget plan created and saved successfully",
+            "questionnaire_answers": data,
+            "budget_plan": recommendation
+        }), 201
+    else:
+        return jsonify({"error": "Failed to save budget plan"}), 500
+
+@budget_bp.route('/reset', methods=['POST'])
+def reset_budget():
+    """Reset budget plan - used by frontend"""
+    if budget_service.reset_budget_file():
+        return jsonify({"message": "Budget plan reset successfully."}), 200
+    return jsonify({"error": "Failed to reset budget plan."}), 500
