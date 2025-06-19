@@ -7,3 +7,5 @@ backend/express/generated/
 
 # Build output
 backend/express/dist/
+node_modules
+frontend/budgetInterface/node_modules/

@@ -27,5 +27,11 @@ def reset_chat():
 def get_current_budget_for_chatbot():
     budget_info = chatbot_service.get_current_budget_info()
     if budget_info:
-        return jsonify(budget_info), 200
+        # Return the full budget structure that the frontend expects
+        full_budget_data = chatbot_service._load_user_budget()
+        if full_budget_data:
+            return jsonify(full_budget_data), 200
+        else:
+            # Fallback to just the budget_plan if full data not available
+            return jsonify({"budget_plan": budget_info}), 200
     return jsonify({"message": "No budget plan found for chatbot context."}), 404

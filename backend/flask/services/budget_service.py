@@ -3,11 +3,17 @@ import os
 import re 
 from config import Config  # Changed from relative to absolute import
 from groq import Groq 
+import time
 
 class BudgetService:
     def __init__(self):
         self.client = Groq(api_key=Config.GROQ_API_KEY)
         self.budget_file_path = 'budget_plan.json' # Relative to app root
+
+        # Add file caching
+        self._file_cache = None
+        self._file_cache_timestamp = None
+        self._file_cache_duration = 30  # Cache for 30 seconds
 
     def _clean_budget_response(self, response: str):
         """Clean and parse the budget response from API"""
@@ -101,21 +107,51 @@ class BudgetService:
                     'questionnaire_answers': answers,
                     'budget_plan': budget_plan
                 }, f, indent=2)
+            # Clear cache after successful save
+            self._file_cache = None
+            self._file_cache_timestamp = None
             return True
         except Exception as e:
             print(f"Error saving budget plan: {e}")
             return False
 
-    def load_budget_plan(self):
-        """Loads the budget plan from a JSON file."""
-        if os.path.exists(self.budget_file_path):
-            try:
-                with open(self.budget_file_path, 'r') as f:
-                    return json.load(f)
-            except Exception as e:
-                print(f"Error loading budget plan: {e}")
+    def load_budget_plan(self, force_refresh=False):
+        """Load budget plan from file with smart caching"""
+        try:
+            budget_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'budget_plan.json')
+            current_time = time.time() if hasattr(time, 'time') else 0
+            
+            # Use cached data if available and not forcing refresh
+            if (not force_refresh and self._file_cache and self._file_cache_timestamp and 
+                current_time - self._file_cache_timestamp < self._file_cache_duration):
+                return self._file_cache
+            
+            if os.path.exists(budget_file_path):
+                # Check file modification time to see if it actually changed
+                file_mtime = os.path.getmtime(budget_file_path)
+                
+                if (not force_refresh and self._file_cache and self._file_cache_timestamp and 
+                    file_mtime <= self._file_cache_timestamp):
+                    # File hasn't been modified, return cached data
+                    return self._file_cache
+                
+                with open(budget_file_path, 'r', encoding='utf-8') as file:
+                    data = json.load(file)
+                    
+                    # Update cache
+                    self._file_cache = data
+                    self._file_cache_timestamp = file_mtime
+                    
+                    if force_refresh:
+                        print(f"🔄 Force loaded budget data from file")
+                    
+                    return data
+            else:
+                print(f"⚠️ Budget file not found at: {budget_file_path}")
                 return None
-        return None
+        except Exception as e:
+            print(f"❌ Error loading budget plan: {e}")
+            return None
 
     def reset_budget_file(self):
         """Reset the budget plan JSON file"""

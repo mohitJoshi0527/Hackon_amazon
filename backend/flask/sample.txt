@@ -1,4 +1,6 @@
 Invoke-RestMethod -Uri "http://localhost:5000/api/budget/questionnaire" -Method GET  //from this we get questionnaire_answers
+# Get the questionnaire first
+$questionnaire = Invoke-RestMethod -Uri "http://localhost:5000/api/budget/questionnaire" -Method GET  
 
 $body = @{
     # Use values exactly as they appear in the options

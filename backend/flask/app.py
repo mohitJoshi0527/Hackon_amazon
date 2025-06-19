@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 import os # For session key
 
 # Import blueprints
@@ -9,6 +10,7 @@ from config import Config # To ensure config is loaded and validated
 
 def create_app():
     app = Flask(__name__)
+    CORS(app)  # Enable CORS for all routes
     
     # Load configuration
     app.config.from_object(Config) # Though GROQ_API_KEY is used directly by services via Config class
