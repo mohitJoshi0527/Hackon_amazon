@@ -34,7 +34,7 @@ export const verifyTransaction = async (req: Request, res: Response) => {
     const parseResult = verifyTransactionSchema.safeParse(req.body);
 
     if (!parseResult.success) {
-      res.status(400).json({ error: parseResult.error.format() });\
+      res.status(400).json({ error: parseResult.error.format() });
       return;
     }
 

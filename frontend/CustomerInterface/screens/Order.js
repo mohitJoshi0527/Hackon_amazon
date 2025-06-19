@@ -9,7 +9,9 @@ import {
   StyleSheet,
   Alert,
   Modal,
-  Button,
+  Pressable,
+  SafeAreaView,
+  Image,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { EXPRESS_API } from "@env";
@@ -18,7 +20,6 @@ const OrderScreen = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCoin, setSelectedCoin] = useState(null);
-
   const ORDERS_KEY = "cached_orders";
 
   const loadOrdersFromStorage = async () => {
@@ -61,9 +62,7 @@ const OrderScreen = () => {
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`Server responded with ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
 
       const data = await response.json();
       setOrders(data);
@@ -72,7 +71,7 @@ const OrderScreen = () => {
     } catch (error) {
       console.error("Error fetching orders:", error);
       Alert.alert("Error", "Failed to load orders");
-      await loadOrdersFromStorage(); // fallback
+      await loadOrdersFromStorage();
     } finally {
       setLoading(false);
     }
@@ -89,69 +88,133 @@ const OrderScreen = () => {
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
-      <Text style={styles.title}>Order ID:</Text>
-      <Text selectable>{item.orderId}</Text>
+      <Text style={styles.cardTitle}>Order ID</Text>
+      <Text selectable style={styles.cardValue}>{item.orderId}</Text>
 
-      <Text style={styles.label}>Value: ₹{item.value}</Text>
-      <Text style={styles.label}>Payment Mode: {item.paymentMode}</Text>
-      <Text style={styles.label}>Delivery Status: {item.deliveryStatus}</Text>
-      <Text style={styles.label}>
-        Delivery Date: {formatDate(item.deliveryDate)}
-      </Text>
-      <Text style={styles.label}>User ID: {item.userId}</Text>
-      <Text style={styles.label}>
-        Agent ID: {item.assignedAgentId ?? "Not assigned"}
-      </Text>
+      <Text style={styles.label}>Value: <Text style={styles.value}>₹{item.value}</Text></Text>
+      <Text style={styles.label}>Payment Mode: <Text style={styles.value}>{item.paymentMode}</Text></Text>
+      <Text style={styles.label}>Delivery Status: <Text style={styles.value}>{item.deliveryStatus}</Text></Text>
+      <Text style={styles.label}>Delivery Date: <Text style={styles.value}>{formatDate(item.deliveryDate)}</Text></Text>
+      <Text style={styles.label}>Agent ID: <Text style={styles.value}>{item.assignedAgentId ?? "Not assigned"}</Text></Text>
 
       {item.coin && (
-        <Button
-          title="Show Coin QR"
-          onPress={() => setSelectedCoin(item.coin)}
-          color="#007bff"
-        />
+        <Pressable style={styles.qrButton} onPress={() => setSelectedCoin(item.coin)}>
+          <Text style={styles.qrButtonText}>Show Coin QR</Text>
+        </Pressable>
       )}
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Orders</Text>
-      {loading ? (
-        <ActivityIndicator size="large" color="#007bff" />
-      ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={(item) => item.orderId}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 20 }}
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <Image
+          source={require("../assets/Amazon-Logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
         />
-      )}
+        <Text style={styles.headerTitle}>Your Orders</Text>
+      </View>
+
+      <View style={styles.container}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#FF9900" />
+        ) : (
+          <FlatList
+            data={orders}
+            keyExtractor={(item) => item.orderId}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        )}
+      </View>
 
       <Modal visible={!!selectedCoin} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.qrLabel}>Coin QR Code</Text>
+            <Text style={styles.qrLabel}>🪙 Coin QR Code</Text>
             <QRCode value={selectedCoin || ""} size={250} />
-            <Button title="Close" onPress={() => setSelectedCoin(null)} />
+            <Pressable style={styles.closeBtn} onPress={() => setSelectedCoin(null)}>
+              <Text style={styles.closeBtnText}>Close</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { padding: 20, flex: 1, backgroundColor: "#fff" },
-  header: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
-  card: {
-    backgroundColor: "#f9f9f9",
-    borderRadius: 8,
-    padding: 15,
-    marginBottom: 15,
-    elevation: 3,
+  screen: {
+    flex: 1,
+    backgroundColor: "#F6F8FA",
   },
-  title: { fontWeight: "bold", fontSize: 16, marginBottom: 5 },
-  label: { marginTop: 4, fontSize: 14 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: "#FFF",
+    elevation: 2,
+  },
+  logo: {
+    width: 100,
+    height: 30,
+    marginRight: 10,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#232F3E",
+  },
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    flex: 1,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#232F3E",
+    marginBottom: 4,
+  },
+  cardValue: {
+    fontSize: 14,
+    color: "#000",
+    marginBottom: 8,
+  },
+  label: {
+    fontSize: 14,
+    color: "#555",
+    marginBottom: 4,
+  },
+  value: {
+    fontWeight: "500",
+    color: "#111",
+  },
+  qrButton: {
+    marginTop: 12,
+    backgroundColor: "#FF9900",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  qrButtonText: {
+    color: "#FFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.6)",
@@ -166,9 +229,22 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   qrLabel: {
-    fontSize: 18,
-    marginBottom: 15,
-    fontWeight: "bold",
+    fontSize: 20,
+    marginBottom: 20,
+    fontWeight: "700",
+    color: "#444",
+  },
+  closeBtn: {
+    marginTop: 20,
+    backgroundColor: "#232F3E",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  closeBtnText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
 

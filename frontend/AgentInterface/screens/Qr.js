@@ -1,8 +1,16 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import React, { useRef, useState } from "react";
-import { Alert, StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  View,
+  ActivityIndicator,
+  Image,
+  Pressable,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { verifyJWT } from "../utils/verifyJWT"; // adjust if in different folder
+import { verifyJWT } from "../utils/verifyJWT"; // adjust path if needed
 
 export default function QRScreen() {
   const [permission, requestPermission] = useCameraPermissions();
@@ -13,13 +21,18 @@ export default function QRScreen() {
   if (!permission) return null;
   if (!permission.granted) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.message}>
-          Allow camera access to scan QR codes.
+      <View style={styles.permissionContainer}>
+        <Image
+          source={require("../assets/Amazon-Logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.permissionText}>
+          We need your camera permission to scan QR codes.
         </Text>
-        <Text style={styles.link} onPress={requestPermission}>
-          Grant Permission
-        </Text>
+        <Pressable style={styles.permissionButton} onPress={requestPermission}>
+          <Text style={styles.permissionButtonText}>Grant Permission</Text>
+        </Pressable>
       </View>
     );
   }
@@ -46,21 +59,14 @@ export default function QRScreen() {
         }
       }
 
-      if (typeof token !== "string") throw new Error("Invalid QR");
-
       const raw = await AsyncStorage.getItem("pendingOrders");
       const pending = raw ? JSON.parse(raw) : [];
-      console.log(pending);
       let valid = false,
         payload;
 
       for (const order of pending) {
-        console.log("🧾 Trying order:", order.orderId);
-        console.log("🔐 Using key (order.signature):", order.signature);
         try {
           const verifiedPayload = verifyJWT(token, order.signature);
-          console.log("✅ Verified payload:", verifiedPayload);
-
           if (
             verifiedPayload.orderId === order.orderId &&
             verifiedPayload.userId === order.userId &&
@@ -72,7 +78,7 @@ export default function QRScreen() {
             break;
           }
         } catch (e) {
-          console.error("❌ JWT Verification failed:", e.message);
+          console.error("JWT Verification failed:", e.message);
         }
       }
 
@@ -89,11 +95,9 @@ export default function QRScreen() {
       logArr.push(newLog);
       await AsyncStorage.setItem("log", JSON.stringify(logArr));
 
-      Alert.alert(
-        "✅ Verified",
-        `Order: ${payload.orderId}\nCoin: ${payload.coinId}`,
-        [{ text: "OK", onPress: () => setScanned(false) }]
-      );
+      Alert.alert("✅ Verified", `Order: ${payload.orderId}\nCoin: ${payload.coinId}`, [
+        { text: "OK", onPress: () => setScanned(false) },
+      ]);
     } catch (err) {
       Alert.alert("❌ Error", err.message || "Verification failed", [
         { text: "Scan Again", onPress: () => setScanned(false) },
@@ -113,8 +117,8 @@ export default function QRScreen() {
       />
       {loading && (
         <View style={styles.overlay}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.loadingText}>Verifying...</Text>
+          <ActivityIndicator size="large" color="#FF9900" />
+          <Text style={styles.loadingText}>Verifying QR Code...</Text>
         </View>
       )}
     </View>
@@ -122,21 +126,52 @@ export default function QRScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#000" },
-  camera: { flex: 1 },
-  center: {
+  container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    backgroundColor: "#000",
   },
-  message: { color: "#fff", marginBottom: 10, textAlign: "center" },
-  link: { color: "#0af", fontSize: 16 },
+  camera: {
+    flex: 1,
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#000000aa",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
-  loadingText: { color: "#fff", marginTop: 10, fontSize: 16 },
+  loadingText: {
+    marginTop: 12,
+    color: "#FF9900",
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: "#F6F6F6",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  logo: {
+    width: 140,
+    height: 40,
+    marginBottom: 20,
+  },
+  permissionText: {
+    fontSize: 16,
+    color: "#232F3E",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  permissionButton: {
+    backgroundColor: "#FF9900",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  permissionButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });

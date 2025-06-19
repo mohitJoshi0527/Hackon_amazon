@@ -2,15 +2,17 @@ import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
-  Button,
   FlatList,
   StyleSheet,
   ActivityIndicator,
   Alert,
+  Pressable,
+  Image,
+  SafeAreaView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://192.168.185.59:8000/api/a/order";
+const API_URL = "http://localhost:8000/api/a/order";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -30,9 +32,7 @@ const Orders = () => {
     try {
       setLoading(true);
       const response = await fetch(API_URL);
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`Error ${response.status}`);
 
       const data = await response.json();
       await AsyncStorage.setItem("pendingOrders", JSON.stringify(data));
@@ -53,53 +53,131 @@ const Orders = () => {
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
-      <Text style={styles.title}>Order ID: {item.orderId}</Text>
-      <Text>Value: ₹{item.value}</Text>
-      <Text>Status: {item.deliveryStatus}</Text>
-      <Text>Payment Mode: {item.paymentMode}</Text>
-      <Text>Delivery Date: {formatDate(item.deliveryDate)}</Text>
-      <Text>User ID: {item.userId}</Text>
-      <Text>Agent ID: {item.assignedAgentId ?? "Not assigned"}</Text>
+      <Text style={styles.cardTitle}>🧾 Order ID: <Text style={styles.bold}>{item.orderId}</Text></Text>
+      <View style={styles.divider} />
+      <Text style={styles.itemText}>💰 Value: <Text style={styles.value}>₹{item.value}</Text></Text>
+      <Text style={styles.itemText}>🚚 Status: <Text style={styles.value}>{item.deliveryStatus}</Text></Text>
+      <Text style={styles.itemText}>💳 Payment: <Text style={styles.value}>{item.paymentMode}</Text></Text>
+      <Text style={styles.itemText}>📦 Delivery: <Text style={styles.value}>{formatDate(item.deliveryDate)}</Text></Text>
+      <Text style={styles.itemText}>🙍‍♂️ User ID: <Text style={styles.value}>{item.userId}</Text></Text>
+      <Text style={styles.itemText}>🧑‍💼 Agent ID: <Text style={styles.value}>{item.assignedAgentId ?? "Not assigned"}</Text></Text>
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Pending Orders</Text>
-      <Button title="Fetch Pending Orders" onPress={fetchPendingOrders} />
-      {loading ? (
-        <ActivityIndicator size="large" color="#007bff" />
-      ) : (
-        <FlatList
-          data={orders}
-          keyExtractor={(item) => item.orderId}
-          renderItem={renderItem}
-          contentContainerStyle={{ paddingBottom: 20 }}
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <Image
+          source={require("../assets/Amazon-Logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
         />
-      )}
-    </View>
+        <Text style={styles.headerTitle}>Pending Orders</Text>
+      </View>
+
+      <View style={styles.container}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.fetchButton,
+            pressed && { opacity: 0.8 },
+          ]}
+          onPress={fetchPendingOrders}
+        >
+          <Text style={styles.fetchButtonText}>🔄 Fetch Pending Orders</Text>
+        </Pressable>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#FF9900" />
+        ) : (
+          <FlatList
+            data={orders}
+            keyExtractor={(item) => item.orderId}
+            renderItem={renderItem}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  header: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
+  screen: {
+    flex: 1,
+    backgroundColor: "#F2F3F5",
   },
-  card: {
-    backgroundColor: "#f5f5f5",
-    padding: 15,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    elevation: 3,
+    borderBottomColor: "#ddd",
+    borderBottomWidth: 1,
+  },
+  logo: {
+    width: 100,
+    height: 30,
+    marginRight: 10,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#232F3E",
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+  },
+  fetchButton: {
+    backgroundColor: "#FF9900",
+    paddingVertical: 12,
     borderRadius: 8,
-    marginBottom: 12,
+    alignItems: "center",
+    marginBottom: 20,
     elevation: 2,
   },
-  title: {
+  fetchButtonText: {
+    color: "#FFF",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "600",
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#232F3E",
     marginBottom: 6,
+  },
+  itemText: {
+    fontSize: 14,
+    color: "#555",
+    marginBottom: 4,
+  },
+  value: {
+    fontWeight: "500",
+    color: "#111",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#EAEAEA",
+    marginVertical: 10,
+  },
+  bold: {
+    fontWeight: "700",
+    color: "#000",
   },
 });
 
