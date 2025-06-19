@@ -25,26 +25,22 @@ enum Status {
 }
 
 model User {
+  id           String  @id @default(uuid())
+  firstName    String
+  lastName     String
+  phone        String  @unique
+  email        String  @unique
+  hashPassword String
+  orders       Order[] @relation("UserOrders")
+}
+
+model Agent {
   id           String @id @default(uuid())
   firstName    String
   lastName     String
   phone        String @unique
   email        String @unique
   hashPassword String
-
-  wallet Coin[]  @relation("UserWallet")
-  orders Order[] @relation("UserOrders")
-}
-
-model Agent {
-  id           String  @id @default(uuid())
-  firstName    String
-  lastName     String
-  phone        String  @unique
-  email        String  @unique
-  wallet       Coin[]  @relation("AgentWallet")
-  hashPassword String
-  orders       Order[] @relation("AgentOrders")
 }
 
 model Coin {
@@ -57,12 +53,10 @@ model Coin {
   createdOn    DateTime   @default(now())
   transferDate DateTime?
   status       CoinStatus @default(Active)
-  user         User?      @relation("UserWallet", fields: [userId], references: [id])
-  agent        Agent?     @relation("AgentWallet", fields: [agentId], references: [id])
 }
 
 model Item {
-  itemId String @id @default(uuid())
+  itemId Int    @id @default(autoincrement())
   name   String
   price  Float
 
@@ -77,8 +71,8 @@ model Order {
   deliveryStatus  Status        @default(Pending)
   userId          String
   assignedAgentId String?
+  signature       String?
 
-  user          User   @relation("UserOrders", fields: [userId], references: [id])
-  assignedAgent Agent? @relation("AgentOrders", fields: [assignedAgentId], references: [id])
-  items         Item[] @relation("OrderItems")
+  user  User   @relation("UserOrders", fields: [userId], references: [id])
+  items Item[] @relation("OrderItems")
 }

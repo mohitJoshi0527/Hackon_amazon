@@ -1,11 +1,66 @@
-# Node.js dependencies
-backend/express/node_modules/
-backend/express/generated/
+# Root-level
+node_modules/
+.env
+.DS_Store
+*.log
+
+# Logs and temp files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.swp
+*.swo
+*.tmp
+
+# VSCode settings (optional)
+.vscode/
+
+# IDE folders
+.idea/
+*.iml
+
+# MacOS system files
+.DS_Store
+
+# Python (for flask and function folders)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Prisma generated folders
+/backend/express/generated/
+/backend/express/prisma/migrations/
+
+# TypeScript build output
+/backend/express/dist/
+
+# React Native - Expo
+# Ignore node_modules in all frontend subfolders
+/frontend/**/node_modules/
+/frontend/**/.expo/
+/frontend/**/.expo-shared/
+# Build artifacts
+*.apk
+*.aab
+
+# Metro / React Native cache
+.expo/
+.expo-shared/
+.cache/
+android/
+ios/
 
 # Environment variables
-.env
+/backend/express/.env
+/frontend/**/.env
 
 # Build output
 backend/express/dist/
 node_modules
 frontend/budgetInterface/node_modules/
+# Optional lock files (if using only one package manager)
+yarn.lock
+pnpm-lock.yaml
