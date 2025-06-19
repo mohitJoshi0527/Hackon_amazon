@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import {
   View,
   Text,
@@ -18,21 +19,45 @@ const OrderScreen = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCoin, setSelectedCoin] = useState(null);
 
+  const ORDERS_KEY = "cached_orders";
+
+  const loadOrdersFromStorage = async () => {
+    try {
+      const cached = await AsyncStorage.getItem(ORDERS_KEY);
+      if (cached) {
+        setOrders(JSON.parse(cached));
+        console.log("Loaded orders from local storage");
+      }
+    } catch (error) {
+      console.error("Failed to load cached orders:", error);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token) {
-        Alert.alert("Authentication Error", "No token found");
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) {
+        Alert.alert("Offline", "No internet connection. Showing cached data.");
+        await loadOrdersFromStorage();
+        setLoading(false);
         return;
       }
 
-      const response = await fetch(`${EXPRESS_API}/order`, {
+      const token = await AsyncStorage.getItem("token");
+      const userString = await AsyncStorage.getItem("user");
+      const user = userString ? JSON.parse(userString) : null;
+      const userId = user?.id;
+
+      if (!token || !userId) {
+        Alert.alert("Error", "Authentication or user data is missing");
+        return;
+      }
+
+      const response = await fetch(`${EXPRESS_API}/order?userId=${userId}`, {
         method: "GET",
         headers: {
           Accept: "*/*",
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
       });
 
@@ -42,9 +67,12 @@ const OrderScreen = () => {
 
       const data = await response.json();
       setOrders(data);
+      await AsyncStorage.setItem(ORDERS_KEY, JSON.stringify(data));
+      console.log("Fetched and cached orders from API");
     } catch (error) {
       console.error("Error fetching orders:", error);
       Alert.alert("Error", "Failed to load orders");
+      await loadOrdersFromStorage(); // fallback
     } finally {
       setLoading(false);
     }

@@ -38,6 +38,7 @@ const ProfileScreen = () => {
       </Text>
       <Text>Email: {user.email}</Text>
       <Text>Phone: {user.phone}</Text>
+      <Text>Id: {user.id}</Text>
 
       <View style={styles.logoutButton}>
         <Button title="Logout" color="red" onPress={handleLogout} />

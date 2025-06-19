@@ -26,6 +26,8 @@ const LoginScreen = () => {
 
       await AsyncStorage.setItem("token", data.token);
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      console.log(user);
+      console.log(token);
 
       Alert.alert("Login Successful", `Welcome, ${data.user.firstName}`);
     } catch (error) {

@@ -16,8 +16,7 @@ export const createUser = async (req: Request, res: Response) => {
       res.status(400).json({ message: parseResult.error.errors[0].message });
       return;
     }
-    const { firstName, lastName, email, password, phone } =
-      parseResult.data;
+    const { firstName, lastName, email, password, phone } =parseResult.data;
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });

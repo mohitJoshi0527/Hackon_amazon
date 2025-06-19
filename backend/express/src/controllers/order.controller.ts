@@ -52,7 +52,7 @@ export const createOrder = async (req: Request, res: Response) => {
             userId,
             orderId: order.orderId,
             value,
-            agentId : "516fdf07-5622-4221-87cf-13c0825bd12f",
+            agentId: "516fdf07-5622-4221-87cf-13c0825bd12f",
           },
         });
       }
@@ -69,7 +69,24 @@ export const createOrder = async (req: Request, res: Response) => {
 
 export const getOrder = async (req: Request, res: Response) => {
   try {
+    const userId = req.query.userId as string;
+
+    if (!userId) {
+      res
+        .status(400)
+        .json({ message: "userId is required as a query parameter" });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({ where: { id: userId } });
+
+    if (!user) {
+      res.status(400).json({ message: "Invalid user" });
+      return;
+    }
+
     const orderList = await prisma.order.findMany({
+      where: { userId: user.id },
       select: {
         orderId: true,
         value: true,
@@ -84,18 +101,24 @@ export const getOrder = async (req: Request, res: Response) => {
 
     const ordersWithCoins = await Promise.all(
       orderList.map(async (order) => {
-        const { signature, ...rest} = order;
+        const { signature, ...rest } = order;
         let signedCoin: string | null = null;
 
-        if (order.signature) {
+        if (signature) {
           const coinPayload = await prisma.coin.findFirst({
-            where: {
-              orderId: order.orderId,
-            },
+            where: { orderId: order.orderId },
+            select: { coinId: true },
           });
 
           if (coinPayload) {
-            signedCoin = jwt.sign({coinPayload, ...rest}, order.signature, {
+            const tranxPayload = {
+              orderId: order.orderId,
+              userId: order.userId,
+              assignedAgentId: order.assignedAgentId ?? "",
+              coinId: coinPayload.coinId,
+            };
+
+            signedCoin = jwt.sign(tranxPayload, signature, {
               algorithm: "HS256",
             });
           }
@@ -106,8 +129,10 @@ export const getOrder = async (req: Request, res: Response) => {
     );
 
     res.status(200).json(ordersWithCoins);
+    return;
   } catch (error) {
     console.error("Error fetching orders:", error);
     res.status(500).json({ message: "Internal Server Error" });
+    return;
   }
 };
