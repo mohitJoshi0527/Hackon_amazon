@@ -13,16 +13,31 @@ const QuestionnairePage = ({ navigation }) => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [apiConnected, setApiConnected] = useState(true);
+  const [networkError, setNetworkError] = useState(false);
 
   useEffect(() => {
     const getQuestionnaire = async () => {
       try {
         setLoading(true);
+        setError(null);
+        setNetworkError(false);
+        
         const data = await fetchQuestionnaire();
         console.log('Loaded questionnaire:', data);
         
         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
           setQuestionnaire(data);
+          
+          // Check if this is fallback data (indicates network issue)
+          const isFallback = data.monthly_budget && data.monthly_budget.question === "What is your monthly budget in rupees?";
+          if (isFallback) {
+            setApiConnected(false);
+            setNetworkError(true);
+            setError('Working offline - server connection failed');
+          } else {
+            setApiConnected(true);
+          }
           
           // Initialize answers with empty values
           const initialAnswers = {};
@@ -31,11 +46,13 @@ const QuestionnairePage = ({ navigation }) => {
           });
           setAnswers(initialAnswers);
         } else {
-          setError('Invalid questionnaire data received');
+          throw new Error('No questionnaire data received');
         }
       } catch (err) {
         console.error('Failed to load questionnaire:', err);
-        setError('Failed to load budget questionnaire');
+        setApiConnected(false);
+        setNetworkError(true);
+        setError('Network connection failed - working offline');
       } finally {
         setLoading(false);
       }
@@ -128,6 +145,7 @@ const QuestionnairePage = ({ navigation }) => {
 
     try {
       setSubmitting(true);
+      setError(null);
       
       // Format data
       const formattedData = {...answers};
@@ -135,32 +153,47 @@ const QuestionnairePage = ({ navigation }) => {
         formattedData.top_categories = formattedData.top_categories.join(', ');
       }
       
-      // Submit the plan
+      // Submit budget plan (will handle offline creation automatically)
       const result = await submitBudgetPlan(formattedData);
       console.log('Budget plan created:', result);
       
-      // Sync with chatbot
+      // Try to sync with chatbot if result exists
       if (result && result.budget_plan) {
         try {
-          await syncBudgetWithChatbot({
-            budget_plan: result.budget_plan,
-            questionnaire_answers: formattedData
-          });
-          console.log('Budget synced with chatbot successfully');
+          if (apiConnected) {
+            await syncBudgetWithChatbot({
+              budget_plan: result.budget_plan,
+              questionnaire_answers: formattedData
+            });
+            console.log('Budget synced with chatbot successfully');
+          }
         } catch (syncError) {
           console.error('Failed to sync budget with chatbot:', syncError);
+          // Don't fail the whole process if sync fails
         }
       }
       
-      // Store the budget
+      // Store the budget locally
       if (result) {
         const budgetToStore = {
+          budget_plan: result.budget_plan,
+          questionnaire_answers: formattedData,
           total: Number(formattedData.monthly_budget),
           categories: result.budget_plan || {}
         };
         
-        console.log('Storing budget with correct total:', budgetToStore);
+        console.log('Storing budget locally:', budgetToStore);
         localStorage.setItem('budget_plan', JSON.stringify(budgetToStore));
+        
+        // Clear budget service cache
+        if (typeof budgetService?.clearCache === 'function') {
+          budgetService.clearCache();
+        }
+
+        // Trigger budget update notification
+        if (typeof budgetService?.triggerBudgetUpdate === 'function') {
+          budgetService.triggerBudgetUpdate('questionnaire_completion');
+        }
       }
       
       setSuccess(true);
@@ -173,7 +206,7 @@ const QuestionnairePage = ({ navigation }) => {
     } catch (err) {
       console.error('Failed to submit questionnaire:', err);
       setSubmitting(false);
-      setError('Failed to submit budget plan. Please try again.');
+      setError('Failed to create budget plan. Please try again.');
     }
   };
 
@@ -259,8 +292,14 @@ const QuestionnairePage = ({ navigation }) => {
         
         <Text style={styles.headerTitle}>Budget Questionnaire</Text>
         
-        {/* Empty view for spacing */}
-        <View style={styles.headerSpacer} />
+        {/* Status indicator */}
+        <View style={[styles.statusIndicator, { 
+          backgroundColor: networkError ? '#FF9800' : (apiConnected ? '#4CAF50' : '#FF9800') 
+        }]}>
+          <Text style={styles.statusText}>
+            {networkError ? 'Offline' : (apiConnected ? 'Online' : 'Offline')}
+          </Text>
+        </View>
       </View>
 
       <ScrollView 
@@ -272,6 +311,14 @@ const QuestionnairePage = ({ navigation }) => {
           <Text style={styles.title}>Budget Planning Questionnaire</Text>
           <Text style={styles.subtitle}>Let's create your personalized budget plan</Text>
           <Text style={styles.requiredNote}>* All fields are required</Text>
+          
+          {networkError && (
+            <View style={styles.warningContainer}>
+              <Text style={styles.warningText}>
+                ⚠️ Working offline - your budget will be created locally
+              </Text>
+            </View>
+          )}
         </View>
 
         {questionKeys.length === 0 ? (
@@ -565,6 +612,31 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  statusIndicator: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  statusText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  warningContainer: {
+    backgroundColor: '#FFF3CD',
+    borderColor: '#FFEAA7',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+  },
+  warningText: {
+    color: '#856404',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
 

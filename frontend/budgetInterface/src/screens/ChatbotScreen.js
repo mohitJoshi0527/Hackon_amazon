@@ -11,7 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import axios from 'axios'; // Keep using axios like the working version
+import budgetService from '../services/budgetService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,9 +38,6 @@ const Icon = ({ name, size = 20, color = '#000', style }) => (
   </Text>
 );
 
-// Configure API base URL (same as working version)
-const API_BASE_URL = 'http://192.168.29.40:5000';
-
 const ChatbotScreen = ({ navigation, route }) => {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -51,67 +48,142 @@ const ChatbotScreen = ({ navigation, route }) => {
   
   const scrollViewRef = useRef(null);
   const inputRef = useRef(null);
-  const speechSynthesis = Platform.OS === 'web' ? window.speechSynthesis : null;
-
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  
   // Get current theme
   const currentTheme = isDarkMode ? darkTheme : lightTheme;
 
-  // Initialize with welcome message (same as working version)
+  // Initialize with welcome message
   useEffect(() => {
     const welcomeMessage = {
       id: 1,
-      text: "Hello! I'm your budget assistant. How can I help you manage your Amazon shopping budget today?",
+      text: "Hello! I'm your budget assistant. I can help you update your budget, analyze spending, and provide Amazon shopping tips. Try saying something like 'increase electronics by 5000' or 'set food budget to 8000'!",
       isUser: false,
       timestamp: new Date().toLocaleTimeString(),
     };
     setMessages([welcomeMessage]);
   }, []);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
+  // Simplified and more reliable auto-scroll
+  const scrollToBottom = () => {
     if (scrollViewRef.current) {
+      // Use setTimeout to ensure DOM is updated
       setTimeout(() => {
         scrollViewRef.current.scrollToEnd({ animated: true });
-      }, 100);
+      }, 50);
+      
+      // Backup scroll with longer delay
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 200);
     }
+  };
+
+  // Auto-scroll whenever messages change
+  useEffect(() => {
+    scrollToBottom();
   }, [messages]);
 
-  // Use the EXACT same API logic from the working version
+  // Auto-scroll when loading changes (response received)
+  useEffect(() => {
+    if (!isLoading) {
+      scrollToBottom();
+    }
+  }, [isLoading]);
+
+  // Handle keyboard events
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      const { Keyboard } = require('react-native');
+      
+      const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setTimeout(scrollToBottom, 100);
+      });
+      
+      const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+        setKeyboardHeight(0);
+        setTimeout(scrollToBottom, 100);
+      });
+
+      return () => {
+        keyboardDidShowListener?.remove();
+        keyboardDidHideListener?.remove();
+      };
+    }
+  }, []);
+
+  // Enhanced chatbot API with fallback to budget processing
   const sendChatMessage = async (message) => {
     try {
       console.log('Sending message to chatbot API:', message);
       
-      const response = await axios.post(`${API_BASE_URL}/api/chatbot/chat`, {
-        message: message,
-        // Add any other required parameters
-        user_id: '12345', // Add user ID if needed
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        timeout: 10000, // 10 second timeout
-      });
+      // Try the API endpoints with shorter timeout
+      const endpoints = [
+        'http://localhost:5000/api/chatbot/chat',
+        'http://192.168.29.40:5000/api/chatbot/chat'
+      ];
       
-      console.log('Chatbot API response:', response.data);
-      
-      // Extract the bot's reply from the response (EXACT same logic)
-      let botReply = "I can help with budget planning, spending analysis, and shopping tips. What specific aspect are you interested in?";
-      
-      if (response.data && response.data.reply) {
-        botReply = response.data.reply;
-      } else if (response.data && response.data.response) {
-        botReply = response.data.response;
-      } else if (response.data && typeof response.data === 'string') {
-        botReply = response.data;
+      for (const endpoint of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+          
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              message: message,
+              user_id: '12345',
+            }),
+            signal: controller.signal
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('Chatbot API response:', data);
+            
+            // Extract bot reply
+            if (data && data.reply) {
+              return data.reply;
+            } else if (data && data.response) {
+              return data.response;
+            } else if (data && typeof data === 'string') {
+              return data;
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to connect to ${endpoint}:`, error.message);
+          continue;
+        }
       }
       
-      return botReply;
+      // If all endpoints fail, provide helpful fallback response
+      throw new Error('All chatbot endpoints failed');
+      
     } catch (error) {
       console.error('Error communicating with chatbot API:', error);
-      throw new Error('Failed to get response from chatbot');
+      
+      // Return helpful fallback responses based on message content
+      const lowerMessage = message.toLowerCase();
+      
+      if (lowerMessage.includes('budget') && (lowerMessage.includes('update') || lowerMessage.includes('change'))) {
+        return "I can help you update your budget! Try specific commands like:\n• 'Increase Electronics by 5000'\n• 'Set Food budget to 8000'\n• 'Allocate 3000 for Books'\n• 'Reduce Travel by 2000'";
+      } else if (lowerMessage.includes('help')) {
+        return "I can help you with:\n🔹 Budget updates and modifications\n🔹 Spending analysis and tips\n🔹 Amazon shopping recommendations\n🔹 Financial planning advice\n\nWhat would you like assistance with?";
+      } else if (lowerMessage.includes('total') || lowerMessage.includes('budget')) {
+        return "I can help you manage your budget! You can ask me to update specific categories or get spending advice. What would you like to do with your budget?";
+      } else {
+        return "I'm here to help with your budget and Amazon shopping! While my server connection is limited, I can still assist with budget updates and provide financial tips. What can I help you with?";
+      }
     }
   };
 
+  // Enhanced send message function that can handle budget updates
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
 
@@ -123,13 +195,56 @@ const ChatbotScreen = ({ navigation, route }) => {
     };
 
     const currentInput = inputText.trim();
+    
+    // Add user message and scroll immediately
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
+    
+    // Immediate scroll for user message
+    setTimeout(scrollToBottom, 10);
+    
     setIsLoading(true);
 
     try {
-      // Use the working API function
-      const botReply = await sendChatMessage(currentInput);
+      // Check if this is a budget update request
+      const budgetKeywords = ['update budget', 'change budget', 'increase', 'decrease', 'set budget', 'allocate', 'modify budget', 'set', 'make'];
+      const isBudgetUpdate = budgetKeywords.some(keyword => 
+        currentInput.toLowerCase().includes(keyword)
+      );
+
+      let botReply;
+      
+      if (isBudgetUpdate) {
+        console.log('🤖 Detected budget update request, processing...');
+        
+        // Process budget update through budget service
+        const updateResult = await budgetService.processChatbotBudgetUpdate(currentInput);
+        
+        if (updateResult.success) {
+          botReply = `✅ ${updateResult.message}\n\nYour budget has been updated and saved. You can see the changes in the Home screen.`;
+          
+          // Add success message with delay
+          setTimeout(() => {
+            const successMessage = {
+              id: Date.now() + 100,
+              text: "💡 Tip: Go to the Home screen to see your updated budget visualization and pie chart!",
+              isUser: false,
+              timestamp: new Date().toLocaleTimeString(),
+            };
+            setMessages(prev => [...prev, successMessage]);
+          }, 2000);
+          
+        } else {
+          botReply = `❌ ${updateResult.message}`;
+          
+          if (updateResult.suggestions) {
+            botReply += '\n\nHere are some examples:\n' + updateResult.suggestions.join('\n');
+          }
+        }
+      } else {
+        // Regular chatbot conversation
+        botReply = await sendChatMessage(currentInput);
+      }
       
       const aiMessage = {
         id: Date.now() + 1,
@@ -139,11 +254,12 @@ const ChatbotScreen = ({ navigation, route }) => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
+
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = {
         id: Date.now() + 1,
-        text: "Sorry, I couldn't connect to the server. Please check your connection and try again.",
+        text: "I'm having trouble connecting to my server, but I can still help with budget updates! Try commands like 'increase electronics by 5000' or ask me for financial tips.",
         isUser: false,
         timestamp: new Date().toLocaleTimeString(),
       };
@@ -178,12 +294,10 @@ const ChatbotScreen = ({ navigation, route }) => {
   const speakMessage = (messageText, messageId) => {
     if (speechSynthesis) {
       if (speakingMessageId === messageId) {
-        // Stop speaking
         speechSynthesis.cancel();
         setSpeakingMessageId(null);
       } else {
-        // Start speaking
-        speechSynthesis.cancel(); // Stop any current speech
+        speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(messageText);
         utterance.rate = 0.9;
         utterance.pitch = 1;
@@ -209,7 +323,6 @@ const ChatbotScreen = ({ navigation, route }) => {
     setIsDarkMode(!isDarkMode);
   };
 
-  // Add this function to handle navigation back to home
   const navigateToHome = () => {
     console.log('🏠 Navigating to HomeScreen from ChatbotScreen...');
     
@@ -224,6 +337,22 @@ const ChatbotScreen = ({ navigation, route }) => {
       fromChatbot: true,
       timestamp: Date.now()
     });
+  };
+
+  // Quick budget update suggestions
+  const quickBudgetUpdates = [
+    "Increase Electronics & Accessories by 5000",
+    "MY budget is", 
+    "Allocate 3000 for Books",
+    "Reduce  Groceries & Household Items by 2000",
+    "Update total budget to 50000"
+  ];
+
+  const sendQuickUpdate = (updateText) => {
+    setInputText(updateText);
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
   };
 
   const renderMessage = (message) => {
@@ -309,16 +438,13 @@ const ChatbotScreen = ({ navigation, route }) => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={[styles.container, { backgroundColor: currentTheme.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <View style={[styles.container, { backgroundColor: currentTheme.background }]}>
       {/* Fixed Header */}
       <View style={[styles.header, { backgroundColor: currentTheme.headerBackground }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity
             style={[styles.headerButton, { backgroundColor: currentTheme.headerButtonBg }]}
-            onPress={navigateToHome} // Use the new function instead of direct navigation
+            onPress={navigateToHome}
           >
             <Icon name="home" size={20} color={currentTheme.headerButtonText} />
           </TouchableOpacity>
@@ -354,30 +480,59 @@ const ChatbotScreen = ({ navigation, route }) => {
         </View>
       </View>
 
-      {/* Messages Area */}
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        contentContainerStyle={styles.messagesContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {messages.map(renderMessage)}
-        
-        {/* Loading Indicator */}
-        {isLoading && (
-          <View style={styles.loadingContainer}>
-            <View style={[styles.loadingBubble, { backgroundColor: currentTheme.messageBackground }]}>
-              <View style={styles.loadingDots}>
-                <View style={[styles.loadingDot, { backgroundColor: currentTheme.textSecondary }]} />
-                <View style={[styles.loadingDot, { backgroundColor: currentTheme.textSecondary }]} />
-                <View style={[styles.loadingDot, { backgroundColor: currentTheme.textSecondary }]} />
+      {/* Chat Messages Container */}
+      <View style={styles.chatContainer}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesScrollView}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {messages.map(renderMessage)}
+          
+          {/* Quick Budget Update Suggestions */}
+          {messages.length <= 2 && (
+            <View style={styles.quickActionsContainer}>
+              <Text style={[styles.quickActionsTitle, { color: currentTheme.text }]}>
+                💡 Quick Budget Updates:
+              </Text>
+              {quickBudgetUpdates.map((update, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.quickActionButton, { backgroundColor: currentTheme.primary + '20', borderColor: currentTheme.primary }]}
+                  onPress={() => sendQuickUpdate(update)}
+                >
+                  <Text style={[styles.quickActionText, { color: currentTheme.primary }]}>
+                    {update}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+          
+          {/* Loading Indicator */}
+          {isLoading && (
+            <View style={styles.loadingContainer}>
+              <View style={[styles.loadingBubble, { backgroundColor: currentTheme.messageBackground }]}>
+                <View style={styles.loadingDots}>
+                  <View style={[styles.loadingDot, { backgroundColor: currentTheme.textSecondary }]} />
+                  <View style={[styles.loadingDot, { backgroundColor: currentTheme.textSecondary }]} />
+                  <View style={[styles.loadingDot, { backgroundColor: currentTheme.textSecondary }]} />
+                </View>
+                <Text style={[styles.loadingText, { color: currentTheme.textSecondary }]}>
+                  Thinking...
+                </Text>
               </View>
             </View>
-          </View>
-        )}
-      </ScrollView>
+          )}
+          
+          {/* Bottom spacer to ensure last message is visible */}
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      </View>
 
-      {/* Input Area */}
+      {/* Fixed Input Area */}
       <View style={[styles.inputContainer, { backgroundColor: currentTheme.inputBackground }]}>
         <View style={styles.inputWrapper}>
           <TextInput
@@ -389,13 +544,14 @@ const ChatbotScreen = ({ navigation, route }) => {
             }]}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Ask about your budget..."
+            placeholder="Ask about your budget or try 'increase electronics by 5000'..."
             placeholderTextColor={currentTheme.textSecondary}
             multiline
             maxLength={500}
             onSubmitEditing={sendMessage}
             blurOnSubmit={false}
             editable={!isLoading}
+            returnKeyType="send"
           />
           
           <TouchableOpacity
@@ -413,53 +569,51 @@ const ChatbotScreen = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
-// Theme configurations matching HomeScreen
+// Theme definitions
 const lightTheme = {
-  background: '#f8f9fa',
-  headerBackground: '#ffffff',
-  headerText: '#212529',
-  headerTextSecondary: '#6c757d',
-  headerButtonBg: '#f8f9fa',
-  headerButtonText: '#495057',
-  text: '#212529',
-  textSecondary: '#6c757d',
-  primary: '#007bff',
+  background: '#f5f5f5',
+  headerBackground: '#fff',
+  headerText: '#333',
+  headerTextSecondary: '#666',
+  headerButtonBg: '#f0f0f0',
+  headerButtonText: '#333',
+  messageBackground: '#fff',
+  text: '#333',
+  textSecondary: '#666',
+  primary: '#007AFF',
   success: '#28a745',
   error: '#dc3545',
-  messageBackground: '#ffffff',
-  inputBackground: '#ffffff',
-  inputFieldBg: '#f8f9fa',
-  inputBorder: '#e9ecef',
+  border: '#ddd',
+  inputBackground: '#fff',
+  disabled: '#ccc',
   actionButtonBg: '#f8f9fa',
-  aiBackground: '#e9ecef',
-  aiText: '#495057',
-  sendButtonDisabled: '#e9ecef',
+  aiBackground: '#e3f2fd',
+  aiText: '#1976d2'
 };
 
 const darkTheme = {
   background: '#121212',
   headerBackground: '#1e1e1e',
-  headerText: '#ffffff',
-  headerTextSecondary: '#b3b3b3',
-  headerButtonBg: '#333333',
-  headerButtonText: '#ffffff',
-  text: '#ffffff',
-  textSecondary: '#b3b3b3',
-  primary: '#4fc3f7',
-  success: '#4caf50',
-  error: '#f44336',
+  headerText: '#fff',
+  headerTextSecondary: '#ccc',
+  headerButtonBg: '#333',
+  headerButtonText: '#fff',
   messageBackground: '#2d2d2d',
+  text: '#fff',
+  textSecondary: '#ccc',
+  primary: '#0084FF',
+  success: '#28a745',
+  error: '#dc3545',
+  border: '#444',
   inputBackground: '#1e1e1e',
-  inputFieldBg: '#333333',
-  inputBorder: '#404040',
-  actionButtonBg: '#404040',
-  aiBackground: '#404040',
-  aiText: '#ffffff',
-  sendButtonDisabled: '#404040',
+  disabled: '#555',
+  actionButtonBg: '#444',
+  aiBackground: '#1e3a8a',
+  aiText: '#60a5fa'
 };
 
 const styles = StyleSheet.create({
@@ -474,9 +628,6 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(0,0,0,0.1)',
     ...Platform.select({
       web: {
-        position: 'sticky',
-        top: 0,
-        zIndex: 1000,
         boxShadow: '0px 2px 4px rgba(0,0,0,0.1)',
       },
       default: {
@@ -501,9 +652,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 4,
     ...Platform.select({
-      web: {
-        cursor: 'pointer',
-      },
+      web: { cursor: 'pointer' },
     }),
   },
   headerTitle: {
@@ -521,12 +670,19 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
   },
-  messagesContainer: {
+  chatContainer: {
     flex: 1,
+    paddingTop: 10, // Small padding after header
+    paddingBottom: 0, // No bottom padding - input will handle spacing
+  },
+  messagesScrollView: {
+    flex: 1,
+    paddingHorizontal: 16,
   },
   messagesContent: {
-    padding: 16,
-    paddingBottom: 20,
+    paddingTop: 10,
+    paddingBottom: 120, // Ensure content doesn't get hidden behind input (input height + safety margin)
+    flexGrow: 1,
   },
   messageContainer: {
     marginBottom: 16,
@@ -596,10 +752,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
-      web: {
-        cursor: 'pointer',
-      },
+      web: { cursor: 'pointer' },
     }),
+  },
+  quickActionsContainer: {
+    marginVertical: 20,
+    paddingHorizontal: 16,
+  },
+  quickActionsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  quickActionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 8,
+    ...Platform.select({
+      web: { cursor: 'pointer' },
+    }),
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -623,11 +801,33 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     opacity: 0.6,
   },
+  loadingText: {
+    fontSize: 12,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   inputContainer: {
-    padding: 16,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 34 : 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.1)',
+    ...Platform.select({
+      web: {
+        boxShadow: '0px -2px 4px rgba(0,0,0,0.1)',
+      },
+      default: {
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      }
+    }),
   },
   inputWrapper: {
     flexDirection: 'row',

@@ -44,6 +44,9 @@ const Icon = ({ name, size = 24, color = '#000', style }) => (
 
 const { width, height } = Dimensions.get('window');
 
+// Add the missing API base URL
+const API_BASE_URL = 'http://192.168.29.40:5000';
+
 const QuestionnaireScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -55,13 +58,20 @@ const QuestionnaireScreen = ({ navigation }) => {
     try {
       console.log('📋 Submitting questionnaire data:', formData);
       
-      const response = await fetch(`${API_BASE_URL}/budget/create-from-questionnaire`, {
+      // Use fetch with timeout instead of relying on server
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(`${API_BASE_URL}/api/budget/create-from-questionnaire`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.text();
@@ -84,7 +94,7 @@ const QuestionnaireScreen = ({ navigation }) => {
       setLoading(false);
       
       // Navigate to HomeScreen with parameters to trigger refresh
-      navigation.navigate('Home', {
+      navigation.navigate('HomeScreen', {
         fromQuestionnaire: true,
         budgetCreated: true,
         timestamp: Date.now()
@@ -92,7 +102,44 @@ const QuestionnaireScreen = ({ navigation }) => {
 
     } catch (error) {
       console.error('❌ Error creating budget:', error);
-      setError(error.message || 'Failed to create budget. Please try again.');
+      
+      // Create offline budget if server fails
+      console.log('🔄 Creating offline budget due to network error...');
+      
+      try {
+        // Create a basic offline budget
+        const offlineBudget = {
+          budget_plan: {
+            "General Shopping": Math.round(Number(formData.budget || 10000) * 0.8),
+            "Savings": Math.round(Number(formData.budget || 10000) * 0.2),
+            total_budget: Number(formData.budget || 10000),
+            recommendations: [
+              "Budget created offline due to connection issues.",
+              "Sync with server when connection is restored."
+            ]
+          }
+        };
+        
+        localStorage.setItem('budget_plan', JSON.stringify(offlineBudget));
+        
+        // Clear budget service cache
+        if (typeof budgetService?.clearCache === 'function') {
+          budgetService.clearCache();
+        }
+
+        // Navigate to home with offline flag
+        navigation.navigate('HomeScreen', {
+          fromQuestionnaire: true,
+          budgetCreated: true,
+          offline: true,
+          timestamp: Date.now()
+        });
+        
+      } catch (offlineError) {
+        console.error('Failed to create offline budget:', offlineError);
+        setError('Failed to create budget. Please check your connection and try again.');
+      }
+      
       setLoading(false);
     }
   };
