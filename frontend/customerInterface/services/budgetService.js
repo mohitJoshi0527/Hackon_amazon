@@ -1,6 +1,15 @@
 import { FLASK_API } from "@env";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+function fetchWithTimeout(resource, options = {}, timeout = 10000) {
+  return Promise.race([
+    fetch(resource, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timed out")), timeout)
+    ),
+  ]);
+}
+
 class BudgetService {
   constructor() {
     this.cache = null;
@@ -54,14 +63,17 @@ class BudgetService {
       for (const endpoint of endpoints) {
         try {
           console.log(`🔄 Trying to fetch budget from: ${endpoint}`);
-          response = await fetch(endpoint, {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
+          response = await fetchWithTimeout(
+            endpoint,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              cache: "no-cache",
             },
-            cache: "no-cache",
-            signal: AbortSignal.timeout(5000),
-          });
+            5000
+          );
 
           if (response.ok) {
             console.log(`✅ Successfully connected to: ${endpoint}`);
@@ -259,13 +271,16 @@ class BudgetService {
 
       for (const endpoint of endpoints) {
         try {
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
+          const response = await fetchWithTimeout(
+            endpoint,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
             },
-            signal: AbortSignal.timeout(5000),
-          });
+            5000
+          );
 
           if (response.ok) {
             console.log("✅ Budget reset on server");
@@ -345,14 +360,17 @@ class BudgetService {
 
       for (const endpoint of endpoints) {
         try {
-          const response = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
+          const response = await fetchWithTimeout(
+            endpoint,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(serverPayload),
             },
-            body: JSON.stringify(serverPayload),
-            signal: AbortSignal.timeout(10000),
-          });
+            10000
+          );
 
           if (response.ok) {
             result = await response.json();
