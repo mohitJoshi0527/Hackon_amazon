@@ -143,8 +143,47 @@ const OrderScreen = () => {
           />
         )}
       </View>
+      {Platform.OS === "web" && selectedCoin && (
+        <View style={styles.webModalOverlay}>
+          <View style={styles.webModalContent}>
+            <Text style={styles.qrLabel}>Coin QR Code</Text>
+            <Text style={styles.qrLabelWarning}>
+              For your security, do not share this QR code. Present it only to
+              the delivery agent during delivery.
+            </Text>
+            <QRCode value={selectedCoin || ""} size={250} />
+            <Pressable
+              style={styles.closeBtn}
+              onPress={() => setSelectedCoin(null)}
+            >
+              <Text style={styles.closeBtnText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
-      <Modal visible={!!selectedCoin} transparent animationType="slide">
+      {Platform.OS !== "web" && (
+        <Modal visible={!!selectedCoin} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.qrLabel}>Coin QR Code</Text>
+              <Text style={styles.qrLabelWarning}>
+                For your security, do not share this QR code. Present it only to
+                the delivery agent during delivery
+              </Text>
+              <QRCode value={selectedCoin || ""} size={250} />
+              <Pressable
+                style={styles.closeBtn}
+                onPress={() => setSelectedCoin(null)}
+              >
+                <Text style={styles.closeBtnText}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* <Modal visible={!!selectedCoin} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.qrLabel}>Coin QR Code</Text>
@@ -162,7 +201,7 @@ const OrderScreen = () => {
             </Pressable>
           </View>
         </View>
-      </Modal>
+      </Modal> */}
     </SafeAreaView>
   );
 };
@@ -278,6 +317,30 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 16,
     fontWeight: "600",
+  },
+  webModalOverlay: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+    padding: 20,
+  },
+
+  webModalContent: {
+    backgroundColor: "#fff",
+    padding: 24,
+    borderRadius: 12,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+    width: "90%",
+    maxWidth: 400,
+    alignItems: "center",
+    zIndex: 10000,
   },
 });
 
