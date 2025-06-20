@@ -33,7 +33,7 @@ const ProfileScreen = () => {
   const handleLogout = async () => {
     await AsyncStorage.removeItem("token");
     await AsyncStorage.removeItem("user");
-    navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+    navigation.reset({ index: 0, routes: [{ name: "Tabs" }] });
   };
 
   if (loading) {
@@ -52,7 +52,7 @@ const ProfileScreen = () => {
         resizeMode="contain"
       />
       <View style={styles.card}>
-        <Text style={styles.greeting}>Hi, {user.firstName} 👋</Text>
+        <Text style={styles.greeting}>Hi, {user.firstName}</Text>
         <View style={styles.infoRow}>
           <Text style={styles.label}>Email:</Text>
           <Text style={styles.value}>{user.email}</Text>
@@ -63,7 +63,7 @@ const ProfileScreen = () => {
         </View>
         <View style={styles.infoRow}>
           <Text style={styles.label}>User ID:</Text>
-          <Text style={styles.value}>{user.id}</Text>
+          <Text style={styles.value}>{String(user.id).split("-")[0]}</Text>
         </View>
 
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
