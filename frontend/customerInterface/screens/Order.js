@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { StatusBar, Platform } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
 import {
   View,
@@ -62,7 +63,8 @@ const OrderScreen = () => {
         },
       });
 
-      if (!response.ok) throw new Error(`Server responded with ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Server responded with ${response.status}`);
 
       const data = await response.json();
       setOrders(data);
@@ -89,16 +91,29 @@ const OrderScreen = () => {
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Order ID</Text>
-      <Text selectable style={styles.cardValue}>{item.orderId}</Text>
+      <Text selectable style={styles.cardValue}>
+        {String(item.orderId).split("-")[0]}
+      </Text>
 
-      <Text style={styles.label}>Value: <Text style={styles.value}>₹{item.value}</Text></Text>
-      <Text style={styles.label}>Payment Mode: <Text style={styles.value}>{item.paymentMode}</Text></Text>
-      <Text style={styles.label}>Delivery Status: <Text style={styles.value}>{item.deliveryStatus}</Text></Text>
-      <Text style={styles.label}>Delivery Date: <Text style={styles.value}>{formatDate(item.deliveryDate)}</Text></Text>
-      <Text style={styles.label}>Agent ID: <Text style={styles.value}>{item.assignedAgentId ?? "Not assigned"}</Text></Text>
+      <Text style={styles.label}>
+        Value: <Text style={styles.value}>₹{item.value}</Text>
+      </Text>
+      <Text style={styles.label}>
+        Payment Mode: <Text style={styles.value}>{item.paymentMode}</Text>
+      </Text>
+      <Text style={styles.label}>
+        Delivery Status: <Text style={styles.value}>{item.deliveryStatus}</Text>
+      </Text>
+      <Text style={styles.label}>
+        Delivery Date:{" "}
+        <Text style={styles.value}>{formatDate(item.deliveryDate)}</Text>
+      </Text>
 
       {item.coin && (
-        <Pressable style={styles.qrButton} onPress={() => setSelectedCoin(item.coin)}>
+        <Pressable
+          style={styles.qrButton}
+          onPress={() => setSelectedCoin(item.coin)}
+        >
           <Text style={styles.qrButtonText}>Show Coin QR</Text>
         </Pressable>
       )}
@@ -132,9 +147,17 @@ const OrderScreen = () => {
       <Modal visible={!!selectedCoin} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.qrLabel}>🪙 Coin QR Code</Text>
+            <Text style={styles.qrLabel}>Coin QR Code</Text>
+            <Text style={styles.qrLabelWarning}>
+              {" "}
+              For your security, do not share this QR code. Present it only to
+              the delivery agent during delivery
+            </Text>
             <QRCode value={selectedCoin || ""} size={250} />
-            <Pressable style={styles.closeBtn} onPress={() => setSelectedCoin(null)}>
+            <Pressable
+              style={styles.closeBtn}
+              onPress={() => setSelectedCoin(null)}
+            >
               <Text style={styles.closeBtnText}>Close</Text>
             </Pressable>
           </View>
@@ -156,6 +179,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: "#FFF",
     elevation: 2,
+    marginTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   logo: {
     width: 100,
@@ -193,6 +217,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#000",
     marginBottom: 8,
+    fontWeight: "bold",
   },
   label: {
     fontSize: 14,
@@ -220,6 +245,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
+    padding: 30,
   },
   modalContent: {
     backgroundColor: "#fff",
@@ -233,6 +259,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     fontWeight: "700",
     color: "#444",
+  },
+  qrLabelWarning: {
+    fontSize: 13,
+    marginBottom: 8,
+    color: "#171717",
+    lineHeight: 16,
+    textAlign: "center",
   },
   closeBtn: {
     marginTop: 20,
