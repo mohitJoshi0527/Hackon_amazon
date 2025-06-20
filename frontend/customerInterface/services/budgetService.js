@@ -1,4 +1,6 @@
 import { FLASK_API } from "@env";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 class BudgetService {
   constructor() {
     this.cache = null;
@@ -42,10 +44,8 @@ class BudgetService {
     }
   }
 
-  // Always fetch fresh data from server budget_plan.json
   async fetchBudgetFromServer(notifyCallback = true) {
     try {
-      // Try localhost first, then fallback to IP if needed
       const endpoints = [`${FLASK_API}/chatbot/current_budget`];
 
       let response = null;
@@ -60,7 +60,7 @@ class BudgetService {
               "Content-Type": "application/json",
             },
             cache: "no-cache",
-            signal: AbortSignal.timeout(5000), // 5 second timeout
+            signal: AbortSignal.timeout(5000),
           });
 
           if (response.ok) {
@@ -84,22 +84,17 @@ class BudgetService {
 
       const serverData = await response.json();
 
-      // Create a consistent hash of the server data for change detection
       const serverDataHash = this.createDataHash(serverData);
 
-      // Check if data actually changed
       const dataChanged = this.lastServerDataHash !== serverDataHash;
 
       if (!dataChanged) {
-        // Data hasn't changed, return cached data without notification
         return this.cache || this.getEmptyBudget();
       }
 
-      // Data has changed, process and notify
       console.log("🔄 Budget data changed on server, processing...");
       this.lastServerDataHash = serverDataHash;
 
-      // Handle the actual server response format
       let budgetPlan = {};
       let questionnaireAnswers = {};
 
@@ -128,7 +123,6 @@ class BudgetService {
           questionnaire_answers: questionnaireAnswers,
         };
 
-        // Update local storage with fresh data
         const localStorageData = {
           budget_plan: budgetPlan,
           questionnaire_answers: questionnaireAnswers,
@@ -136,13 +130,12 @@ class BudgetService {
           categories: budgetData.categories,
         };
 
-        localStorage.setItem("budget_plan", JSON.stringify(localStorageData));
-        console.log("✅ Updated localStorage with fresh server data");
+        AsyncStorage.setItem("budget_plan", JSON.stringify(localStorageData));
+        console.log("✅ Updated AsyncStorage with fresh server data");
 
         this.cache = budgetData;
         this.lastFetch = Date.now();
 
-        // Notify callback if there's an active listener and data changed
         if (notifyCallback && this.currentCallback && dataChanged) {
           console.log("📢 Notifying UI of budget changes");
           this.currentCallback(budgetData);
@@ -159,7 +152,6 @@ class BudgetService {
     }
   }
 
-  // Normalize budget plan to ensure consistent data types
   normalizeBudgetPlan(budgetPlan) {
     const normalized = {};
 
@@ -173,7 +165,6 @@ class BudgetService {
         key.includes("Media") ||
         key.includes("Kitchen")
       ) {
-        // Convert string numbers to actual numbers
         normalized[key] = Number(value) || 0;
       } else {
         normalized[key] = value;
@@ -183,11 +174,9 @@ class BudgetService {
     return normalized;
   }
 
-  // Get budget with server-first approach
   async getBudget(forceRefresh = false) {
     const now = Date.now();
 
-    // Always force refresh if explicitly requested or cache is stale
     if (
       forceRefresh ||
       !this.cache ||
@@ -202,7 +191,6 @@ class BudgetService {
     return this.cache;
   }
 
-  // Add clearCache method for forced refreshes
   clearCache() {
     this.cache = null;
     this.lastFetch = null;
@@ -210,15 +198,11 @@ class BudgetService {
     console.log("🗑️ Budget cache cleared");
   }
 
-  // File watcher method with longer intervals
   async startFileWatcher(callback, checkInterval = 30000) {
-    // Increased to 30 seconds
     return this.startChangeDetection(callback, checkInterval);
   }
 
-  // Efficient change detection with longer intervals
   async startChangeDetection(callback, checkInterval = 30000) {
-    // Increased to 30 seconds
     if (this.isPolling) {
       this.stopChangeDetection();
     }
@@ -229,13 +213,11 @@ class BudgetService {
       `🔄 Starting budget change detection (every ${checkInterval / 1000}s)...`
     );
 
-    // Initial load
     const initialBudget = await this.fetchBudgetFromServer(false);
     if (initialBudget) {
       callback(initialBudget);
     }
 
-    // Set up less frequent polling
     this.pollInterval = setInterval(async () => {
       if (!this.isPolling) return;
 
@@ -261,22 +243,17 @@ class BudgetService {
     console.log("⏹️ Stopped budget change detection");
   }
 
-  // Force a fresh fetch bypassing all caches
   async forceFreshFetch() {
     console.log("🔄 Force fetching fresh budget data...");
     this.clearCache();
     return await this.fetchBudgetFromServer(true);
   }
 
-  // Reset budget on server
   async resetBudget() {
     try {
       console.log("🔄 Resetting budget on server...");
 
-      // Try both endpoints for reset
-      const endpoints = [
-        `${FLASK_API}/budget/reset`,
-      ];
+      const endpoints = [`${FLASK_API}/budget/reset`];
 
       let resetSuccess = false;
 
@@ -306,8 +283,7 @@ class BudgetService {
         );
       }
 
-      // Clear local data and hash
-      localStorage.removeItem("budget_plan");
+      AsyncStorage.removeItem("budget_plan");
       this.cache = null;
       this.lastFetch = null;
       this.lastServerDataHash = null;
@@ -316,8 +292,7 @@ class BudgetService {
     } catch (error) {
       console.error("❌ Error resetting budget:", error);
 
-      // Clear local data even if server fails
-      localStorage.removeItem("budget_plan");
+      AsyncStorage.removeItem("budget_plan");
       this.cache = null;
       this.lastFetch = null;
       this.lastServerDataHash = null;
@@ -326,26 +301,21 @@ class BudgetService {
     }
   }
 
-  // Add method to set navigation callback
   setNavigationCallback(callback) {
     this.navigationCallback = callback;
     console.log("📱 Navigation callback set for budget updates");
   }
 
-  // Clear navigation callback
   clearNavigationCallback() {
     this.navigationCallback = null;
     console.log("📱 Navigation callback cleared");
   }
 
-  // Method to trigger navigation after budget creation/update
   triggerBudgetUpdate(source = "unknown") {
     console.log(`🔄 Budget update triggered from: ${source}`);
 
-    // Clear cache to force fresh data
     this.clearCache();
 
-    // Trigger navigation callback if available
     if (this.navigationCallback) {
       console.log("📱 Calling navigation callback for budget update");
       this.navigationCallback({
@@ -356,7 +326,6 @@ class BudgetService {
     }
   }
 
-  // Update budget on server and sync locally
   async updateBudget(budgetData) {
     try {
       console.log("🔄 Updating budget on server...");
@@ -369,11 +338,7 @@ class BudgetService {
         questionnaire_answers: budgetData.questionnaire_answers || {},
       };
 
-      // Try both endpoints for update
-      const endpoints = [
-        `${FLASK_API}/budget/update-file`,
-        "http://192.168.29.40:5000/api/budget/update-file",
-      ];
+      const endpoints = [`${FLASK_API}/budget/update-file`];
 
       let updateSuccess = false;
       let result = null;
@@ -386,7 +351,7 @@ class BudgetService {
               "Content-Type": "application/json",
             },
             body: JSON.stringify(serverPayload),
-            signal: AbortSignal.timeout(10000), // 10 second timeout for updates
+            signal: AbortSignal.timeout(10000),
           });
 
           if (response.ok) {
@@ -404,15 +369,12 @@ class BudgetService {
         throw new Error("Failed to update budget on all server endpoints");
       }
 
-      // Clear cache and hash to force fresh fetch
       this.cache = null;
       this.lastFetch = null;
       this.lastServerDataHash = null;
 
-      // Trigger navigation update
       this.triggerBudgetUpdate("manual_update");
 
-      // Return fresh data from server
       return await this.fetchBudgetFromServer(false);
     } catch (error) {
       console.error("❌ Error updating budget on server:", error);
@@ -420,7 +382,6 @@ class BudgetService {
     }
   }
 
-  // Enhanced budget update method that can handle complex language
   async updateBudgetFromChatbot(updateRequest) {
     try {
       console.log(
@@ -428,7 +389,6 @@ class BudgetService {
         updateRequest
       );
 
-      // Send the complex request to a new backend endpoint that can parse natural language
       const response = await fetch(`${FLASK_API}/api/chatbot/update-budget`, {
         method: "POST",
         headers: {
@@ -450,10 +410,8 @@ class BudgetService {
       console.log("✅ Chatbot budget update result:", result);
 
       if (result.updated_budget) {
-        // Update the budget file directly
         await this.updateBudgetFile(result.updated_budget);
 
-        // Trigger UI refresh
         this.triggerBudgetUpdate("chatbot_complex_update");
 
         return {
@@ -469,17 +427,14 @@ class BudgetService {
     } catch (error) {
       console.error("❌ Error updating budget from chatbot:", error);
 
-      // Fallback to manual parsing if server fails
       return await this.parseAndUpdateBudgetManually(updateRequest);
     }
   }
 
-  // Method that can be called from ChatbotScreen
   async processChatbotBudgetUpdate(message) {
     try {
       console.log("🤖 Processing chatbot message for budget update:", message);
 
-      // Check if the message is requesting a budget update
       const updateKeywords = [
         "update",
         "change",
@@ -501,11 +456,9 @@ class BudgetService {
         };
       }
 
-      // Process the update
       const result = await this.updateBudgetFromChatbot(message);
 
       if (result.success) {
-        // Force refresh the budget data
         await this.fetchBudgetFromServer(true);
       }
 
@@ -520,7 +473,6 @@ class BudgetService {
     }
   }
 
-  // Fallback manual parsing for complex budget updates
   async parseAndUpdateBudgetManually(updateRequest) {
     try {
       console.log("🔄 Attempting manual parsing of budget update...");
@@ -531,29 +483,22 @@ class BudgetService {
       let updatesMade = false;
       const updateLog = [];
 
-      // Enhanced regex patterns for different update types
       const patterns = {
-        // "increase electronics by 5000" or "add 5000 to electronics"
         increase:
           /(?:increase|add|boost|raise)\s+(?:the\s+)?([a-zA-Z\s&]+?)(?:\s+(?:by|with))?\s+(?:by\s+)?(?:rupees?\s+|₹\s*)?(\d+)/gi,
 
-        // "decrease food by 2000" or "reduce food budget by 2000"
         decrease:
           /(?:decrease|reduce|cut|lower)\s+(?:the\s+)?([a-zA-Z\s&]+?)(?:\s+budget)?\s+(?:by\s+)?(?:rupees?\s+|₹\s*)?(\d+)/gi,
 
-        // "set electronics to 8000" or "make electronics 8000"
         set: /(?:set|make|change)\s+(?:the\s+)?([a-zA-Z\s&]+?)(?:\s+(?:to|budget\s+to))\s+(?:rupees?\s+|₹\s*)?(\d+)/gi,
 
-        // "allocate 10000 for travel" or "assign 5000 to books"
         allocate:
           /(?:allocate|assign|give)\s+(?:rupees?\s+|₹\s*)?(\d+)\s+(?:for|to)\s+([a-zA-Z\s&]+)/gi,
 
-        // "total budget should be 50000"
         totalBudget:
           /(?:total|overall)\s+budget\s+(?:should\s+be|to|is)\s+(?:rupees?\s+|₹\s*)?(\d+)/gi,
       };
 
-      // Process total budget changes first
       let match;
       while ((match = patterns.totalBudget.exec(updateRequest)) !== null) {
         const newTotal = parseInt(match[1]);
@@ -564,7 +509,6 @@ class BudgetService {
         }
       }
 
-      // Helper function to find matching category
       const findCategory = (categoryName) => {
         const cleanName = categoryName.trim().toLowerCase();
         const categoryKeys = Object.keys(updatedCategories).filter(
@@ -581,7 +525,6 @@ class BudgetService {
         });
       };
 
-      // Process increase operations
       while ((match = patterns.increase.exec(updateRequest)) !== null) {
         const categoryName = match[1].trim();
         const amount = parseInt(match[2]);
@@ -597,7 +540,6 @@ class BudgetService {
         }
       }
 
-      // Process decrease operations
       while ((match = patterns.decrease.exec(updateRequest)) !== null) {
         const categoryName = match[1].trim();
         const amount = parseInt(match[2]);
@@ -615,7 +557,6 @@ class BudgetService {
         }
       }
 
-      // Process set operations
       while ((match = patterns.set.exec(updateRequest)) !== null) {
         const categoryName = match[1].trim();
         const amount = parseInt(match[2]);
@@ -628,7 +569,6 @@ class BudgetService {
         }
       }
 
-      // Process allocate operations
       while ((match = patterns.allocate.exec(updateRequest)) !== null) {
         const amount = parseInt(match[1]);
         const categoryName = match[2].trim();
@@ -644,7 +584,6 @@ class BudgetService {
       }
 
       if (updatesMade) {
-        // Recalculate total if category changes were made
         const categoryTotal = Object.entries(updatedCategories)
           .filter(
             ([key]) => key !== "total_budget" && key !== "recommendations"
@@ -694,7 +633,6 @@ class BudgetService {
     }
   }
 
-  // Direct budget file update method
   async updateBudgetFile(budgetData) {
     try {
       console.log("🔄 Updating budget file directly:", budgetData);
@@ -719,7 +657,6 @@ class BudgetService {
       const result = await response.json();
       console.log("✅ Budget file updated:", result);
 
-      // Clear cache to force refresh
       this.clearCache();
 
       return result;
@@ -729,10 +666,9 @@ class BudgetService {
     }
   }
 
-  // Fallback to localStorage when server is unavailable
-  getLocalBudgetFallback() {
+  async getLocalBudgetFallback() {
     try {
-      const storedBudget = localStorage.getItem("budget_plan");
+      const storedBudget = await AsyncStorage.getItem("budget_plan");
       if (storedBudget) {
         const budgetData = JSON.parse(storedBudget);
 
@@ -755,13 +691,12 @@ class BudgetService {
         };
       }
     } catch (error) {
-      console.error("❌ Error reading localStorage fallback:", error);
+      console.error("❌ Error reading AsyncStorage fallback:", error);
     }
 
     return this.getEmptyBudget();
   }
 
-  // Get empty budget structure
   getEmptyBudget() {
     return {
       total: 0,
@@ -771,12 +706,10 @@ class BudgetService {
     };
   }
 
-  // Helper method to detect actual data changes
   hasDataChanged(oldData, newData) {
     if (!oldData || !newData) return true;
 
     try {
-      // Compare totals
       if (oldData.total !== newData.total) {
         console.log(
           "💰 Budget total changed:",
@@ -787,7 +720,6 @@ class BudgetService {
         return true;
       }
 
-      // Compare categories (excluding recommendations and metadata)
       const oldCategories = this.getComparableCategories(oldData.categories);
       const newCategories = this.getComparableCategories(newData.categories);
 
@@ -807,7 +739,6 @@ class BudgetService {
         return true;
       }
 
-      // Compare recommendations
       const oldRecs = JSON.stringify(oldData.recommendations || []);
       const newRecs = JSON.stringify(newData.recommendations || []);
 
@@ -819,11 +750,10 @@ class BudgetService {
       return false;
     } catch (error) {
       console.warn("⚠️ Error comparing data changes:", error);
-      return true; // Assume changed if comparison fails
+      return true;
     }
   }
 
-  // Get comparable categories (exclude metadata)
   getComparableCategories(categories) {
     if (!categories) return {};
 
@@ -842,5 +772,4 @@ class BudgetService {
   }
 }
 
-// Export singleton instance
 export default new BudgetService();

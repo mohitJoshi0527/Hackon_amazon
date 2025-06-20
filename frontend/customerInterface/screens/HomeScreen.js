@@ -45,7 +45,7 @@ const Icon = ({ name, size = 24, color = '#000', style }) => (
 
 const { width, height } = Dimensions.get('window');
 
-const HomeScreen = ({ navigation, route }) => { // Add route parameter
+const HomeScreen = ({ navigation, route }) => {
   const [budget, setBudget] = useState({
     total: 0,
     categories: {}

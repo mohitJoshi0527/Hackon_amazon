@@ -1,9 +1,22 @@
 // src/screens/QuestionnairePage.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
-import { TextInput, Button, RadioButton } from 'react-native-paper';
-import { fetchQuestionnaire, submitBudgetPlan, syncBudgetWithChatbot } from '../api/budgetAPI';
-import CustomCheckbox from '../components/CustomCheckbox';
+import React, { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { TextInput, Button, RadioButton } from "react-native-paper";
+import {
+  fetchQuestionnaire,
+  submitBudgetPlan,
+  syncBudgetWithChatbot,
+} from "../api/budgetAPI";
+import CustomCheckbox from "../components/CustomCheckbox";
 
 const QuestionnairePage = ({ navigation }) => {
   const [questionnaire, setQuestionnaire] = useState({});
@@ -22,37 +35,41 @@ const QuestionnairePage = ({ navigation }) => {
         setLoading(true);
         setError(null);
         setNetworkError(false);
-        
+
         const data = await fetchQuestionnaire();
-        console.log('Loaded questionnaire:', data);
-        
-        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+        console.log("Loaded questionnaire:", data);
+
+        if (data && typeof data === "object" && Object.keys(data).length > 0) {
           setQuestionnaire(data);
-          
+
           // Check if this is fallback data (indicates network issue)
-          const isFallback = data.monthly_budget && data.monthly_budget.question === "What is your monthly budget in rupees?";
+          const isFallback =
+            data.monthly_budget &&
+            data.monthly_budget.question ===
+              "What is your monthly budget in rupees?";
           if (isFallback) {
             setApiConnected(false);
             setNetworkError(true);
-            setError('Working offline - server connection failed');
+            setError("Working offline - server connection failed");
           } else {
             setApiConnected(true);
           }
-          
+
           // Initialize answers with empty values
           const initialAnswers = {};
-          Object.keys(data).forEach(key => {
-            initialAnswers[key] = data[key].type === 'multiple_choice_text' ? [] : '';
+          Object.keys(data).forEach((key) => {
+            initialAnswers[key] =
+              data[key].type === "multiple_choice_text" ? [] : "";
           });
           setAnswers(initialAnswers);
         } else {
-          throw new Error('No questionnaire data received');
+          throw new Error("No questionnaire data received");
         }
       } catch (err) {
-        console.error('Failed to load questionnaire:', err);
+        console.error("Failed to load questionnaire:", err);
         setApiConnected(false);
         setNetworkError(true);
-        setError('Network connection failed - working offline');
+        setError("Network connection failed - working offline");
       } finally {
         setLoading(false);
       }
@@ -62,46 +79,48 @@ const QuestionnairePage = ({ navigation }) => {
   }, []);
 
   const handleInputChange = (questionId, value) => {
-    setAnswers(prev => ({
+    setAnswers((prev) => ({
       ...prev,
-      [questionId]: value
+      [questionId]: value,
     }));
-    
+
     // Clear validation error when user starts typing
     if (validationErrors[questionId]) {
-      setValidationErrors(prev => ({
+      setValidationErrors((prev) => ({
         ...prev,
-        [questionId]: null
+        [questionId]: null,
       }));
     }
   };
 
   const handleMultipleChoiceChange = (questionId, option, isSelected) => {
-    setAnswers(prev => {
-      const currentSelections = Array.isArray(prev[questionId]) ? [...prev[questionId]] : [];
-      
+    setAnswers((prev) => {
+      const currentSelections = Array.isArray(prev[questionId])
+        ? [...prev[questionId]]
+        : [];
+
       if (isSelected) {
         if (!currentSelections.includes(option)) {
           const newSelections = [...currentSelections, option];
           // Clear validation error when user makes selection
           if (validationErrors[questionId]) {
-            setValidationErrors(prevErrors => ({
+            setValidationErrors((prevErrors) => ({
               ...prevErrors,
-              [questionId]: null
+              [questionId]: null,
             }));
           }
           return {
             ...prev,
-            [questionId]: newSelections
+            [questionId]: newSelections,
           };
         }
       } else {
         return {
           ...prev,
-          [questionId]: currentSelections.filter(item => item !== option)
+          [questionId]: currentSelections.filter((item) => item !== option),
         };
       }
-      
+
       return prev;
     });
   };
@@ -110,28 +129,28 @@ const QuestionnairePage = ({ navigation }) => {
   const validateForm = () => {
     const errors = {};
     const questionKeys = Object.keys(questionnaire);
-    
-    questionKeys.forEach(key => {
+
+    questionKeys.forEach((key) => {
       const question = questionnaire[key];
       const answer = answers[key];
-      
-      if (question.type === 'number_input') {
-        if (!answer || answer.trim() === '') {
-          errors[key] = 'This field is required';
+
+      if (question.type === "number_input") {
+        if (!answer || answer.trim() === "") {
+          errors[key] = "This field is required";
         } else if (isNaN(Number(answer)) || Number(answer) <= 0) {
-          errors[key] = 'Please enter a valid positive number';
+          errors[key] = "Please enter a valid positive number";
         }
-      } else if (question.type === 'choice') {
-        if (!answer || answer === '') {
-          errors[key] = 'Please select an option';
+      } else if (question.type === "choice") {
+        if (!answer || answer === "") {
+          errors[key] = "Please select an option";
         }
-      } else if (question.type === 'multiple_choice_text') {
+      } else if (question.type === "multiple_choice_text") {
         if (!Array.isArray(answer) || answer.length === 0) {
-          errors[key] = 'Please select at least one option';
+          errors[key] = "Please select at least one option";
         }
       }
     });
-    
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -139,110 +158,117 @@ const QuestionnairePage = ({ navigation }) => {
   const handleSubmit = async () => {
     // Validate form first
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please fill in all required fields correctly.');
+      Alert.alert(
+        "Validation Error",
+        "Please fill in all required fields correctly."
+      );
       return;
     }
 
     try {
       setSubmitting(true);
       setError(null);
-      
+
       // Format data
-      const formattedData = {...answers};
+      const formattedData = { ...answers };
       if (Array.isArray(formattedData.top_categories)) {
-        formattedData.top_categories = formattedData.top_categories.join(', ');
+        formattedData.top_categories = formattedData.top_categories.join(", ");
       }
-      
+
       // Submit budget plan (will handle offline creation automatically)
       const result = await submitBudgetPlan(formattedData);
-      console.log('Budget plan created:', result);
-      
+      console.log("Budget plan created:", result);
+
       // Try to sync with chatbot if result exists
       if (result && result.budget_plan) {
         try {
           if (apiConnected) {
             await syncBudgetWithChatbot({
               budget_plan: result.budget_plan,
-              questionnaire_answers: formattedData
+              questionnaire_answers: formattedData,
             });
-            console.log('Budget synced with chatbot successfully');
+            console.log("Budget synced with chatbot successfully");
           }
         } catch (syncError) {
-          console.error('Failed to sync budget with chatbot:', syncError);
+          console.error("Failed to sync budget with chatbot:", syncError);
           // Don't fail the whole process if sync fails
         }
       }
-      
+
       // Store the budget locally
       if (result) {
         const budgetToStore = {
           budget_plan: result.budget_plan,
           questionnaire_answers: formattedData,
           total: Number(formattedData.monthly_budget),
-          categories: result.budget_plan || {}
+          categories: result.budget_plan || {},
         };
-        
-        console.log('Storing budget locally:', budgetToStore);
-        localStorage.setItem('budget_plan', JSON.stringify(budgetToStore));
-        
+
+        console.log("Storing budget locally:", budgetToStore);
+        await AsyncStorage.setItem(
+          "budget_plan",
+          JSON.stringify(budgetToStore)
+        );
+
         // Clear budget service cache
-        if (typeof budgetService?.clearCache === 'function') {
+        if (typeof budgetService?.clearCache === "function") {
           budgetService.clearCache();
         }
 
         // Trigger budget update notification
-        if (typeof budgetService?.triggerBudgetUpdate === 'function') {
-          budgetService.triggerBudgetUpdate('questionnaire_completion');
+        if (typeof budgetService?.triggerBudgetUpdate === "function") {
+          budgetService.triggerBudgetUpdate("questionnaire_completion");
         }
       }
-      
+
       setSuccess(true);
       setSubmitting(false);
-      
+
       setTimeout(() => {
-        navigation.replace('HomeScreen');
+        navigation.replace("HomeScreen");
       }, 1500);
-      
     } catch (err) {
-      console.error('Failed to submit questionnaire:', err);
+      console.error("Failed to submit questionnaire:", err);
       setSubmitting(false);
-      setError('Failed to create budget plan. Please try again.');
+      setError("Failed to create budget plan. Please try again.");
     }
   };
 
   // Handle back navigation with confirmation
   const handleBackToHome = () => {
-    const hasAnswers = Object.values(answers).some(answer => 
-      Array.isArray(answer) ? answer.length > 0 : answer !== ''
+    const hasAnswers = Object.values(answers).some((answer) =>
+      Array.isArray(answer) ? answer.length > 0 : answer !== ""
     );
-    
+
     if (hasAnswers) {
       Alert.alert(
-        'Unsaved Changes',
-        'You have unsaved changes. Are you sure you want to go back to home?',
+        "Unsaved Changes",
+        "You have unsaved changes. Are you sure you want to go back to home?",
         [
-          { text: 'Stay Here', style: 'cancel' },
-          { 
-            text: 'Go to Home', 
-            style: 'destructive',
-            onPress: () => navigation.replace('HomeScreen')
-          }
+          { text: "Stay Here", style: "cancel" },
+          {
+            text: "Go to Home",
+            style: "destructive",
+            onPress: () => navigation.replace("HomeScreen"),
+          },
         ]
       );
     } else {
-      navigation.replace('HomeScreen');
+      navigation.replace("HomeScreen");
     }
   };
-  
+
   // Show success screen if successful
   if (success) {
     return (
       <View style={styles.successContainer}>
         <Text style={styles.successTitle}>🎉 Budget Plan Created!</Text>
-        <Text style={styles.successMessage}>Your personalized budget plan has been created successfully.</Text>
-        <TouchableOpacity 
+        <Text style={styles.successMessage}>
+          Your personalized budget plan has been created successfully.
+        </Text>
+        <TouchableOpacity
           style={styles.homeButton}
-          onPress={() => navigation.replace('HomeScreen')}
+          onPress={() => navigation.replace("HomeScreen")}
         >
           <Text style={styles.homeButtonText}>Go to Home Screen</Text>
         </TouchableOpacity>
@@ -263,9 +289,9 @@ const QuestionnairePage = ({ navigation }) => {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <Button 
-          mode="contained" 
-          onPress={() => navigation.replace('HomeScreen')}
+        <Button
+          mode="contained"
+          onPress={() => navigation.replace("HomeScreen")}
           style={styles.button}
         >
           Go to Home
@@ -280,38 +306,49 @@ const QuestionnairePage = ({ navigation }) => {
     <View style={styles.container}>
       {/* Fixed Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
-            console.log('Back button pressed - navigating to HomeScreen');
-            navigation.replace('HomeScreen');
+            console.log("Back button pressed - navigating to HomeScreen");
+            navigation.replace("HomeScreen");
           }}
         >
           <Text style={styles.backButtonText}>← Home</Text>
         </TouchableOpacity>
-        
+
         <Text style={styles.headerTitle}>Budget Questionnaire</Text>
-        
+
         {/* Status indicator */}
-        <View style={[styles.statusIndicator, { 
-          backgroundColor: networkError ? '#FF9800' : (apiConnected ? '#4CAF50' : '#FF9800') 
-        }]}>
+        <View
+          style={[
+            styles.statusIndicator,
+            {
+              backgroundColor: networkError
+                ? "#FF9800"
+                : apiConnected
+                ? "#4CAF50"
+                : "#FF9800",
+            },
+          ]}
+        >
           <Text style={styles.statusText}>
-            {networkError ? 'Offline' : (apiConnected ? 'Online' : 'Offline')}
+            {networkError ? "Offline" : apiConnected ? "Online" : "Offline"}
           </Text>
         </View>
       </View>
 
-      <ScrollView 
-        style={styles.scrollContainer} 
+      <ScrollView
+        style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.titleContainer}>
           <Text style={styles.title}>Budget Planning Questionnaire</Text>
-          <Text style={styles.subtitle}>Let's create your personalized budget plan</Text>
+          <Text style={styles.subtitle}>
+            Let's create your personalized budget plan
+          </Text>
           <Text style={styles.requiredNote}>* All fields are required</Text>
-          
+
           {networkError && (
             <View style={styles.warningContainer}>
               <Text style={styles.warningText}>
@@ -322,20 +359,28 @@ const QuestionnairePage = ({ navigation }) => {
         </View>
 
         {questionKeys.length === 0 ? (
-          <Text style={styles.noQuestionsText}>No questions available. Please try again later.</Text>
+          <Text style={styles.noQuestionsText}>
+            No questions available. Please try again later.
+          </Text>
         ) : (
           questionKeys.map((key, index) => {
             const question = questionnaire[key];
             const hasError = validationErrors[key];
-            
+
             return (
-              <View key={key} style={[styles.questionContainer, hasError && styles.questionContainerError]}>
+              <View
+                key={key}
+                style={[
+                  styles.questionContainer,
+                  hasError && styles.questionContainerError,
+                ]}
+              >
                 <Text style={styles.questionNumber}>Question {index + 1}</Text>
                 <Text style={styles.questionText}>
                   {question.question} <Text style={styles.required}>*</Text>
                 </Text>
-                
-                {question.type === 'number_input' && (
+
+                {question.type === "number_input" && (
                   <View>
                     <TextInput
                       style={[styles.input, hasError && styles.inputError]}
@@ -346,19 +391,21 @@ const QuestionnairePage = ({ navigation }) => {
                       mode="outlined"
                       error={hasError}
                     />
-                    {hasError && <Text style={styles.errorMessage}>{hasError}</Text>}
+                    {hasError && (
+                      <Text style={styles.errorMessage}>{hasError}</Text>
+                    )}
                   </View>
                 )}
-                
-                {question.type === 'choice' && question.options && (
+
+                {question.type === "choice" && question.options && (
                   <View>
                     <RadioButton.Group
                       onValueChange={(value) => handleInputChange(key, value)}
                       value={answers[key]}
                     >
                       {question.options.map((option) => (
-                        <TouchableOpacity 
-                          key={option} 
+                        <TouchableOpacity
+                          key={option}
                           style={styles.radioOption}
                           onPress={() => handleInputChange(key, option)}
                         >
@@ -367,26 +414,39 @@ const QuestionnairePage = ({ navigation }) => {
                         </TouchableOpacity>
                       ))}
                     </RadioButton.Group>
-                    {hasError && <Text style={styles.errorMessage}>{hasError}</Text>}
+                    {hasError && (
+                      <Text style={styles.errorMessage}>{hasError}</Text>
+                    )}
                   </View>
                 )}
-                
-                {question.type === 'multiple_choice_text' && question.options && (
-                  <View>
-                    {question.options.map((option) => {
-                      const isSelected = Array.isArray(answers[key]) && answers[key].includes(option);
-                      return (
-                        <CustomCheckbox
-                          key={option}
-                          label={option}
-                          checked={isSelected}
-                          onPress={() => handleMultipleChoiceChange(key, option, !isSelected)}
-                        />
-                      );
-                    })}
-                    {hasError && <Text style={styles.errorMessage}>{hasError}</Text>}
-                  </View>
-                )}
+
+                {question.type === "multiple_choice_text" &&
+                  question.options && (
+                    <View>
+                      {question.options.map((option) => {
+                        const isSelected =
+                          Array.isArray(answers[key]) &&
+                          answers[key].includes(option);
+                        return (
+                          <CustomCheckbox
+                            key={option}
+                            label={option}
+                            checked={isSelected}
+                            onPress={() =>
+                              handleMultipleChoiceChange(
+                                key,
+                                option,
+                                !isSelected
+                              )
+                            }
+                          />
+                        );
+                      })}
+                      {hasError && (
+                        <Text style={styles.errorMessage}>{hasError}</Text>
+                      )}
+                    </View>
+                  )}
               </View>
             );
           })
@@ -401,7 +461,7 @@ const QuestionnairePage = ({ navigation }) => {
             disabled={submitting || questionKeys.length === 0}
             contentStyle={styles.submitButtonContent}
           >
-            {submitting ? 'Creating Budget Plan...' : 'Create Budget Plan'}
+            {submitting ? "Creating Budget Plan..." : "Create Budget Plan"}
           </Button>
         </View>
       </ScrollView>
@@ -412,19 +472,19 @@ const QuestionnairePage = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: "#E0E0E0",
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -433,19 +493,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: '#F0F8FF',
+    backgroundColor: "#F0F8FF",
   },
   backButtonText: {
     fontSize: 16,
-    color: '#2196F3',
-    fontWeight: '600',
+    color: "#2196F3",
+    fontWeight: "600",
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
   },
   headerSpacer: {
     width: 60, // Same width as back button for centering
@@ -459,70 +519,70 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     marginBottom: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
-    color: '#2196F3',
-    textAlign: 'center',
+    color: "#2196F3",
+    textAlign: "center",
   },
   subtitle: {
     fontSize: 16,
     marginBottom: 8,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
   },
   requiredNote: {
     fontSize: 14,
-    color: '#FF6B6B',
-    textAlign: 'center',
-    fontStyle: 'italic',
+    color: "#FF6B6B",
+    textAlign: "center",
+    fontStyle: "italic",
   },
   questionContainer: {
     marginBottom: 20,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 20,
     borderRadius: 12,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   questionContainerError: {
     borderLeftWidth: 4,
-    borderLeftColor: '#FF6B6B',
+    borderLeftColor: "#FF6B6B",
   },
   questionNumber: {
     fontSize: 12,
-    color: '#2196F3',
-    fontWeight: 'bold',
+    color: "#2196F3",
+    fontWeight: "bold",
     marginBottom: 4,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   questionText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 24,
   },
   required: {
-    color: '#FF6B6B',
+    color: "#FF6B6B",
     fontSize: 16,
   },
   input: {
     marginBottom: 8,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   inputError: {
-    borderColor: '#FF6B6B',
+    borderColor: "#FF6B6B",
   },
   radioOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginVertical: 6,
     paddingVertical: 4,
   },
@@ -530,10 +590,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginLeft: 8,
     flex: 1,
-    color: '#333',
+    color: "#333",
   },
   errorMessage: {
-    color: '#FF6B6B',
+    color: "#FF6B6B",
     fontSize: 12,
     marginTop: 4,
     marginLeft: 4,
@@ -552,25 +612,25 @@ const styles = StyleSheet.create({
   },
   centered: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#555',
+    color: "#555",
   },
   errorText: {
-    color: 'red',
+    color: "red",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 16,
   },
   noQuestionsText: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginTop: 20,
   },
   button: {
@@ -578,65 +638,65 @@ const styles = StyleSheet.create({
   },
   successContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 30,
-    backgroundColor: '#f0f9ff',
+    backgroundColor: "#f0f9ff",
   },
   successTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#4CAF50',
+    fontWeight: "bold",
+    color: "#4CAF50",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   successMessage: {
     fontSize: 18,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 30,
-    color: '#333',
+    color: "#333",
     lineHeight: 26,
   },
   homeButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "#2196F3",
     paddingVertical: 15,
     paddingHorizontal: 40,
     borderRadius: 25,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
   },
   homeButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   statusIndicator: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
     minWidth: 60,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statusText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   warningContainer: {
-    backgroundColor: '#FFF3CD',
-    borderColor: '#FFEAA7',
+    backgroundColor: "#FFF3CD",
+    borderColor: "#FFEAA7",
     borderWidth: 1,
     borderRadius: 8,
     padding: 12,
     marginTop: 12,
   },
   warningText: {
-    color: '#856404',
+    color: "#856404",
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
 

@@ -1,5 +1,6 @@
 // src/screens/QuestionnaireScreen.js
 import React, { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -124,7 +125,10 @@ const QuestionnaireScreen = ({ navigation }) => {
           },
         };
 
-        localStorage.setItem("budget_plan", JSON.stringify(offlineBudget));
+        await AsyncStorage.setItem(
+          "budget_plan",
+          JSON.stringify(offlineBudget)
+        );
 
         // Clear budget service cache
         if (typeof budgetService?.clearCache === "function") {
