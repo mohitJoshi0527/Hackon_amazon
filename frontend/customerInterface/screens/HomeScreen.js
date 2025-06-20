@@ -10,12 +10,11 @@ import {
   Animated,
   Platform
 } from 'react-native';
-import { Button, Card, FAB } from 'react-native-paper';
+import { Button, Card } from 'react-native-paper';
 import BudgetCard from '../components/BudgetCard';
 import CategoryPieChart from '../components/CategoryPieChart';
 import budgetService from '../services/budgetService';
 
-// Web-compatible icons (using Unicode emojis and simple symbols)
 const Icons = {
   'weather-sunny': '☀️',
   'weather-night': '🌙',

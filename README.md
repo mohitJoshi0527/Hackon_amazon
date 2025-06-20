@@ -63,7 +63,3 @@ npm install
 - Ensure all services have their environment variables configured properly before running.
 - Frontends may use React Native or Web platforms, so tools like **Expo CLI** or **Webpack** might be needed.
 - Make sure ports used by services do not conflict.
-
-## Documentation
-
-- [Project Workflow](./WORKFLOW.md)

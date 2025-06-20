@@ -10,6 +10,8 @@ import SignUpScreen from "../screens/SignUp";
 import ProfileScreen from "../screens/Profile";
 import OrderScreen from "../screens/Order";
 
+import HomeScreen from "../screens/HomeScreen";
+import MainStackNavigator from "./MainStackNavigator";
 const Tab = createBottomTabNavigator();
 
 const AuthTabs = () => (
@@ -70,6 +72,15 @@ const AppTabs = () => (
       options={{
         tabBarIcon: ({ color, size }) => (
           <Icon name="list-alt" size={size} color={color} />
+        ),
+      }}
+    />
+    <Tab.Screen
+      name="Home"
+      component={MainStackNavigator}
+      options={{
+        tabBarIcon: ({ color, size }) => (
+          <Icon name="home" size={size} color={color} />
         ),
       }}
     />
