@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { StatusBar, Platform } from "react-native";
 import {
   SafeAreaView,
   View,
@@ -11,8 +12,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-
-const API_URL = "http://localhost:8000/api/a/order";
+import { EXPRESS_API } from "@env";
 
 export default function LogScreen() {
   const [logData, setLogData] = useState([]);
@@ -50,7 +50,7 @@ export default function LogScreen() {
     }
     try {
       setLoading(true);
-      const response = await fetch(API_URL, {
+      const response = await fetch(`${EXPRESS_API}/order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ data: logData }),
@@ -69,13 +69,13 @@ export default function LogScreen() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.headerContainer}>
+      <View style={styles.header}>
         <Image
           source={require("../assets/Amazon-Logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.header}>Transaction Log</Text>
+        <Text style={styles.headerTitle}>Transaction Log</Text>
       </View>
 
       <View style={styles.statusContainer}>
@@ -85,7 +85,9 @@ export default function LogScreen() {
             { backgroundColor: isOnline ? "#4CAF50" : "#F44336" },
           ]}
         >
-          <Text style={styles.statusText}>{isOnline ? "Online" : "Offline"}</Text>
+          <Text style={styles.statusText}>
+            {isOnline ? "Online" : "Offline"}
+          </Text>
         </View>
       </View>
 
@@ -95,7 +97,7 @@ export default function LogScreen() {
         ) : (
           <>
             <View style={styles.logCounter}>
-              <Text style={styles.logCountLabel}>📝 Logs to Send:</Text>
+              <Text style={styles.logCountLabel}>Logs to Send:</Text>
               <View style={styles.logBadge}>
                 <Text style={styles.logBadgeText}>{logData.length}</Text>
               </View>
@@ -112,7 +114,9 @@ export default function LogScreen() {
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Send Logs to Amazon Server</Text>
+                <Text style={styles.buttonText}>
+                  Send Logs to Amazon Server
+                </Text>
               )}
             </Pressable>
           </>
@@ -125,23 +129,33 @@ export default function LogScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 20,
-    paddingTop: 40,
+    backgroundColor: "#F2F3F5",
+    gap: 15,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#232F3E",
   },
   headerContainer: {
     alignItems: "center",
     marginBottom: 16,
   },
   logo: {
-    width: 120,
-    height: 35,
-    marginBottom: 8,
+    width: 100,
+    height: 30,
+    marginRight: 10,
   },
   header: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#232F3E",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    elevation: 3,
+    borderBottomColor: "#ddd",
+    borderBottomWidth: 1,
+    marginTop: Platform.OS === "android" ? StatusBar.currentHeight : 0, // ← added line
   },
   statusContainer: {
     alignItems: "center",

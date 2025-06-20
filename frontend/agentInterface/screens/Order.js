@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { StatusBar, Platform } from "react-native";
+
 import {
   View,
   Text,
@@ -12,7 +14,7 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const API_URL = "http://localhost:8000/api/a/order";
+import { EXPRESS_API } from "@env";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -31,7 +33,7 @@ const Orders = () => {
   const fetchPendingOrders = async () => {
     try {
       setLoading(true);
-      const response = await fetch(API_URL);
+      const response = await fetch(`${EXPRESS_API}/order`);
       if (!response.ok) throw new Error(`Error ${response.status}`);
 
       const data = await response.json();
@@ -53,14 +55,24 @@ const Orders = () => {
 
   const renderItem = ({ item }) => (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>🧾 Order ID: <Text style={styles.bold}>{item.orderId}</Text></Text>
+      <Text style={styles.cardTitle}>
+        Order ID:{" "}
+        <Text style={styles.bold}>{String(item.orderId).split("-")[0]}</Text>
+      </Text>
       <View style={styles.divider} />
-      <Text style={styles.itemText}>💰 Value: <Text style={styles.value}>₹{item.value}</Text></Text>
-      <Text style={styles.itemText}>🚚 Status: <Text style={styles.value}>{item.deliveryStatus}</Text></Text>
-      <Text style={styles.itemText}>💳 Payment: <Text style={styles.value}>{item.paymentMode}</Text></Text>
-      <Text style={styles.itemText}>📦 Delivery: <Text style={styles.value}>{formatDate(item.deliveryDate)}</Text></Text>
-      <Text style={styles.itemText}>🙍‍♂️ User ID: <Text style={styles.value}>{item.userId}</Text></Text>
-      <Text style={styles.itemText}>🧑‍💼 Agent ID: <Text style={styles.value}>{item.assignedAgentId ?? "Not assigned"}</Text></Text>
+      <Text style={styles.itemText}>
+        Value: <Text style={styles.value}>₹{item.value}</Text>
+      </Text>
+      <Text style={styles.itemText}>
+        Status: <Text style={styles.value}>{item.deliveryStatus}</Text>
+      </Text>
+      <Text style={styles.itemText}>
+        Payment: <Text style={styles.value}>{item.paymentMode}</Text>
+      </Text>
+      <Text style={styles.itemText}>
+        Delivery:{" "}
+        <Text style={styles.value}>{formatDate(item.deliveryDate)}</Text>
+      </Text>
     </View>
   );
 
@@ -83,7 +95,7 @@ const Orders = () => {
           ]}
           onPress={fetchPendingOrders}
         >
-          <Text style={styles.fetchButtonText}>🔄 Fetch Pending Orders</Text>
+          <Text style={styles.fetchButtonText}>Fetch Pending Orders</Text>
         </Pressable>
 
         {loading ? (
@@ -115,7 +127,9 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderBottomColor: "#ddd",
     borderBottomWidth: 1,
+    marginTop: Platform.OS === "android" ? StatusBar.currentHeight : 0, // ← added line
   },
+
   logo: {
     width: 100,
     height: 30,

@@ -9,16 +9,22 @@ import {
   Image,
   Pressable,
 } from "react-native";
+import { useIsFocused } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { verifyJWT } from "../utils/verifyJWT"; // adjust path if needed
 
 export default function QRScreen() {
+  // ✅ ALWAYS call hooks at the top level
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef(null);
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isFocused = useIsFocused();
 
+  // Permission not yet loaded
   if (!permission) return null;
+
+  // If permission not granted
   if (!permission.granted) {
     return (
       <View style={styles.permissionContainer}>
@@ -46,7 +52,7 @@ export default function QRScreen() {
       let token;
       try {
         const obj = JSON.parse(data);
-        if (obj && typeof obj.signedCoin === "string") {
+        if (obj?.signedCoin) {
           token = obj.signedCoin;
         } else {
           throw new Error("Missing signedCoin");
@@ -95,11 +101,11 @@ export default function QRScreen() {
       logArr.push(newLog);
       await AsyncStorage.setItem("log", JSON.stringify(logArr));
 
-      Alert.alert("✅ Verified", `Order: ${payload.orderId}\nCoin: ${payload.coinId}`, [
+      Alert.alert("Verified", "Verification Successful", [
         { text: "OK", onPress: () => setScanned(false) },
       ]);
     } catch (err) {
-      Alert.alert("❌ Error", err.message || "Verification failed", [
+      Alert.alert("Error", err.message || "Verification failed", [
         { text: "Scan Again", onPress: () => setScanned(false) },
       ]);
     } finally {
@@ -109,12 +115,14 @@ export default function QRScreen() {
 
   return (
     <View style={styles.container}>
-      <CameraView
-        style={styles.camera}
-        ref={cameraRef}
-        onBarcodeScanned={handleBarCodeScanned}
-        barCodeScannerSettings={{ barCodeTypes: ["qr"] }}
-      />
+      {isFocused && (
+        <CameraView
+          style={styles.camera}
+          ref={cameraRef}
+          onBarcodeScanned={handleBarCodeScanned}
+          barCodeScannerSettings={{ barCodeTypes: ["qr"] }}
+        />
+      )}
       {loading && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#FF9900" />
