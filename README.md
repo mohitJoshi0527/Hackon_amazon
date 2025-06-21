@@ -2,6 +2,10 @@
 
 > A transaction system designed to enable payments in remote areas where digital payment methods are not feasible and cash is not a convenient option. This is achieved through the use of encrypted digital coins that can be securely redeemed upon product delivery.
 
+## UML Interaction Diagram
+
+![UML Interaction Diagram](images/umpInteractionDiagram.png)
+
 ## Project Structure
 
 ```bash
@@ -10,7 +14,6 @@
 │   └── flask             # Python backend (Flask)
 ├── frontend
 │   ├── agentInterface    # Frontend for agents
-│   ├── budgetInterface   # Frontend for budget management
 │   └── customerInterface # Frontend for customers
 ```
 
@@ -37,12 +40,17 @@ cd ../flask
 pip install -r requirements.txt
 ```
 
-### 4. Set Up the Frontend Interfaces
-
-Each frontend interface should be set up individually:
+### 4. Set Up the Agent Interfaces
 
 ```bash
-cd frontend/agentInterface       # Or customerInterface / budgetInterface
+cd frontend/agentInterface
+npm install
+```
+
+### 5. Set Up the Agent Interfaces
+
+```bash
+cd frontend/customerInterface
 npm install
 ```
 
@@ -50,13 +58,12 @@ npm install
 
 ## Running the Application
 
-| Service            | Location                     | Command       |
-| ------------------ | ---------------------------- | ------------- |
-| Express Backend    | `backend/express`            | `npm start`   |
-| Flask Backend      | `backend/flask`              | `flask run`   |
-| Agent Interface    | `frontend/agentInterface`    | `npm start`   |
-| Customer Interface | `frontend/customerInterface` | `npm start`   |
-| Budget Interface   | `frontend/budgetInterface`   | `npm run web` |
+| Service            | Location                     | Command     | PORT |
+| ------------------ | ---------------------------- | ----------- | ---- |
+| Express Backend    | `backend/express`            | `npm start` | 8000 |
+| Flask Backend      | `backend/flask`              | `flask run` | 5000 |
+| Agent Interface    | `frontend/agentInterface`    | `npm start` | 8081 |
+| Customer Interface | `frontend/customerInterface` | `npm start` | 8082 |
 
 ## Notes
 
