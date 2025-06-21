@@ -4,7 +4,7 @@
 
 ## UML Interaction Diagram
 
-![UML Interaction Diagram](images/umpInteractionDiagram.png)
+![UML Interaction Diagram](images/image.png)
 
 ## Project Structure
 
