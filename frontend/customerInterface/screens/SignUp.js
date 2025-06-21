@@ -49,75 +49,141 @@ const SignUpScreen = () => {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.container}>
-              <Image
-                source={require("../assets/Amazon-Logo.png")}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.title}>Create your Amazon account</Text>
-              <Text style={styles.subtitle}>Join the shopping revolution</Text>
+      {Platform.OS === "web" ? (
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <View style={styles.container}>
+            <Image
+              source={require("../assets/Amazon-Logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.title}>Create your Amazon account</Text>
+            <Text style={styles.subtitle}>Join the shopping revolution</Text>
 
-              <TextInput
-                style={styles.input}
-                placeholder="First Name"
-                placeholderTextColor="#666"
-                value={firstName}
-                onChangeText={setFirstName}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Last Name"
-                placeholderTextColor="#666"
-                value={lastName}
-                onChangeText={setLastName}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#666"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#666"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone"
-                placeholderTextColor="#666"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-              />
+            <TextInput
+              style={styles.input}
+              placeholder="First Name"
+              placeholderTextColor="#666"
+              value={firstName}
+              onChangeText={setFirstName}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Last Name"
+              placeholderTextColor="#666"
+              value={lastName}
+              onChangeText={setLastName}
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#666"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#666"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Phone"
+              placeholderTextColor="#666"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+            />
 
-              <Pressable style={styles.button} onPress={handleSignUp}>
-                <Text style={styles.buttonText}>Create Account</Text>
-              </Pressable>
+            <Pressable style={styles.button} onPress={handleSignUp}>
+              <Text style={styles.buttonText}>Create Account</Text>
+            </Pressable>
 
-              <Text style={styles.footer}>
-                By creating an account, you agree to Amazon's Conditions of Use and Privacy Notice.
-              </Text>
-            </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
+            <Text style={styles.footer}>
+              By creating an account, you agree to Amazon's Conditions of Use
+              and Privacy Notice.
+            </Text>
+          </View>
+        </ScrollView>
+      ) : (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+              contentContainerStyle={styles.scroll}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View style={styles.container}>
+                <Image
+                  source={require("../assets/Amazon-Logo.png")}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+                <Text style={styles.title}>Create your Amazon account</Text>
+                <Text style={styles.subtitle}>
+                  Join the shopping revolution
+                </Text>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="First Name"
+                  placeholderTextColor="#666"
+                  value={firstName}
+                  onChangeText={setFirstName}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Last Name"
+                  placeholderTextColor="#666"
+                  value={lastName}
+                  onChangeText={setLastName}
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor="#666"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Password"
+                  placeholderTextColor="#666"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Phone"
+                  placeholderTextColor="#666"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                />
+
+                <Pressable style={styles.button} onPress={handleSignUp}>
+                  <Text style={styles.buttonText}>Create Account</Text>
+                </Pressable>
+
+                <Text style={styles.footer}>
+                  By creating an account, you agree to Amazon's Conditions of
+                  Use and Privacy Notice.
+                </Text>
+              </View>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 };
