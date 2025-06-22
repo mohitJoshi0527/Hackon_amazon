@@ -1,6 +1,6 @@
 # Hackon Amazon Season 5
 
-> A transaction system designed to enable payments in remote areas where digital payment methods are not feasible and cash is not a convenient option. This is achieved through the use of encrypted digital coins that can be securely redeemed upon product delivery.
+> A transaction system designed to enable payments in remote areas where digital payment methods are not feasible and cash is not a convenient option. This is achieved through the use of signed digital coins that can be securely redeemed upon product delivery.
 
 ## UML Interaction Diagram
 
